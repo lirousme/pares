@@ -1,14 +1,29 @@
-<section class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
+<section
+  id="authCard"
+  class="w-full max-w-md rounded-2xl border border-brand-500/40 bg-brand-500/10 p-6 shadow-2xl backdrop-blur transition-colors duration-300"
+>
   <header class="mb-6 text-center">
     <h1 class="text-2xl font-bold text-white">Acesso ao Sistema</h1>
     <p class="mt-1 text-sm text-slate-400">Faça login ou crie sua conta</p>
   </header>
 
-  <div class="mb-5 flex items-center justify-between rounded-lg bg-slate-800 p-1 text-xs text-slate-300">
-    <span class="px-3 py-1" id="loginLabel">Login</span>
-    <button id="modeSwitch" type="button" class="rounded-md bg-brand-600 px-3 py-1 font-semibold text-white transition hover:bg-brand-500">
-      Trocar para criar conta
-    </button>
+  <div class="mb-5 rounded-lg bg-slate-900/80 p-1 text-sm">
+    <div class="grid grid-cols-2 gap-1">
+      <button
+        id="tabLogin"
+        type="button"
+        class="rounded-md px-3 py-2 font-semibold transition"
+      >
+        Login
+      </button>
+      <button
+        id="tabRegister"
+        type="button"
+        class="rounded-md px-3 py-2 font-semibold transition"
+      >
+        Criar conta
+      </button>
+    </div>
   </div>
 
   <form id="authForm" class="space-y-4" autocomplete="off">
@@ -50,10 +65,11 @@
 <script>
   (function initAuthView() {
     const form = document.getElementById('authForm');
-    const switchButton = document.getElementById('modeSwitch');
+    const authCard = document.getElementById('authCard');
+    const tabLogin = document.getElementById('tabLogin');
+    const tabRegister = document.getElementById('tabRegister');
     const submitButton = document.getElementById('submitBtn');
     const feedback = document.getElementById('feedback');
-    const loginLabel = document.getElementById('loginLabel');
 
     let mode = 'login';
 
@@ -72,14 +88,26 @@
       const isLogin = mode === 'login';
 
       submitButton.textContent = isLogin ? 'Entrar' : 'Criar conta';
-      switchButton.textContent = isLogin ? 'Trocar para criar conta' : 'Trocar para login';
-      loginLabel.textContent = isLogin ? 'Login' : 'Criar conta';
+      authCard.classList.toggle('border-brand-500/40', isLogin);
+      authCard.classList.toggle('bg-brand-500/10', isLogin);
+      authCard.classList.toggle('border-emerald-500/40', !isLogin);
+      authCard.classList.toggle('bg-emerald-500/10', !isLogin);
+
+      tabLogin.classList.toggle('bg-brand-600', isLogin);
+      tabLogin.classList.toggle('text-white', isLogin);
+      tabLogin.classList.toggle('text-slate-300', !isLogin);
+      tabLogin.classList.toggle('hover:bg-slate-800', !isLogin);
+
+      tabRegister.classList.toggle('bg-emerald-600', !isLogin);
+      tabRegister.classList.toggle('text-white', !isLogin);
+      tabRegister.classList.toggle('text-slate-300', isLogin);
+      tabRegister.classList.toggle('hover:bg-slate-800', isLogin);
+
       feedback.classList.add('hidden');
     }
 
-    switchButton.addEventListener('click', () => {
-      setMode(mode === 'login' ? 'register' : 'login');
-    });
+    tabLogin.addEventListener('click', () => setMode('login'));
+    tabRegister.addEventListener('click', () => setMode('register'));
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
