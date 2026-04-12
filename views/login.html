@@ -1,25 +1,25 @@
 <section
   id="authCard"
-  class="w-full max-w-md rounded-2xl border border-brand-500/40 bg-brand-500/10 p-6 shadow-2xl backdrop-blur transition-colors duration-300"
+  class="w-full max-w-md rounded-2xl border border-brand-500/40 bg-brand-500/10 p-6 shadow-2xl backdrop-blur transition-all duration-300"
 >
   <header class="mb-6 text-center">
-    <h1 class="text-2xl font-bold text-white">Acesso ao Sistema</h1>
-    <p class="mt-1 text-sm text-slate-400">Faça login ou crie sua conta</p>
+    <h1 id="authTitle" class="text-2xl font-bold text-white">Entrar na sua conta</h1>
+    <p id="authSubtitle" class="mt-1 text-sm text-slate-300">Use seu usuário e senha para continuar</p>
   </header>
 
-  <div class="mb-5 rounded-lg bg-slate-900/80 p-1 text-sm">
-    <div class="grid grid-cols-2 gap-1">
+  <div class="mb-5 rounded-xl border border-slate-700/80 bg-slate-900/80 p-1.5 text-sm shadow-inner">
+    <div class="grid grid-cols-2 gap-1.5">
       <button
         id="tabLogin"
         type="button"
-        class="rounded-md px-3 py-2 font-semibold transition"
+        class="rounded-lg px-3 py-2 font-semibold transition-all duration-200"
       >
         Login
       </button>
       <button
         id="tabRegister"
         type="button"
-        class="rounded-md px-3 py-2 font-semibold transition"
+        class="rounded-lg px-3 py-2 font-semibold transition-all duration-200"
       >
         Criar conta
       </button>
@@ -68,6 +68,8 @@
     const authCard = document.getElementById('authCard');
     const tabLogin = document.getElementById('tabLogin');
     const tabRegister = document.getElementById('tabRegister');
+    const title = document.getElementById('authTitle');
+    const subtitle = document.getElementById('authSubtitle');
     const submitButton = document.getElementById('submitBtn');
     const feedback = document.getElementById('feedback');
 
@@ -87,20 +89,40 @@
       mode = newMode;
       const isLogin = mode === 'login';
 
+      title.textContent = isLogin ? 'Entrar na sua conta' : 'Criar uma nova conta';
+      subtitle.textContent = isLogin
+        ? 'Use seu usuário e senha para continuar'
+        : 'Preencha os dados para começar a usar o sistema';
+
       submitButton.textContent = isLogin ? 'Entrar' : 'Criar conta';
       authCard.classList.toggle('border-brand-500/40', isLogin);
       authCard.classList.toggle('bg-brand-500/10', isLogin);
       authCard.classList.toggle('border-emerald-500/40', !isLogin);
       authCard.classList.toggle('bg-emerald-500/10', !isLogin);
 
+      submitButton.classList.toggle('bg-brand-600', isLogin);
+      submitButton.classList.toggle('hover:bg-brand-500', isLogin);
+      submitButton.classList.toggle('bg-emerald-600', !isLogin);
+      submitButton.classList.toggle('hover:bg-emerald-500', !isLogin);
+
       tabLogin.classList.toggle('bg-brand-600', isLogin);
       tabLogin.classList.toggle('text-white', isLogin);
+      tabLogin.classList.toggle('shadow-lg', isLogin);
+      tabLogin.classList.toggle('shadow-brand-900/30', isLogin);
+      tabLogin.classList.toggle('ring-1', isLogin);
+      tabLogin.classList.toggle('ring-brand-300/40', isLogin);
       tabLogin.classList.toggle('text-slate-300', !isLogin);
+      tabLogin.classList.toggle('bg-slate-900/30', !isLogin);
       tabLogin.classList.toggle('hover:bg-slate-800', !isLogin);
 
       tabRegister.classList.toggle('bg-emerald-600', !isLogin);
       tabRegister.classList.toggle('text-white', !isLogin);
+      tabRegister.classList.toggle('shadow-lg', !isLogin);
+      tabRegister.classList.toggle('shadow-emerald-900/30', !isLogin);
+      tabRegister.classList.toggle('ring-1', !isLogin);
+      tabRegister.classList.toggle('ring-emerald-300/40', !isLogin);
       tabRegister.classList.toggle('text-slate-300', isLogin);
+      tabRegister.classList.toggle('bg-slate-900/30', isLogin);
       tabRegister.classList.toggle('hover:bg-slate-800', isLogin);
 
       feedback.classList.add('hidden');
