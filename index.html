@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Biblioteca</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              500: '#6366f1',
+              600: '#4f46e5'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+  <main id="app" class="mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center p-4"></main>
+
+  <script>
+    const app = document.getElementById('app');
+
+    function getViewName() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('view') || 'login';
+    }
+
+    async function renderView() {
+      const viewName = getViewName();
+      const viewPath = `views/${viewName}.html`;
+
+      try {
+        const response = await fetch(viewPath, { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error('View não encontrada.');
+        }
+
+        app.innerHTML = await response.text();
+        document.dispatchEvent(new CustomEvent('view:loaded', { detail: { viewName } }));
+      } catch (error) {
+        app.innerHTML = `
+          <section class="w-full rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-rose-300">
+            <h1 class="text-xl font-bold">Erro ao carregar a view</h1>
+            <p class="mt-2 text-sm">${error.message}</p>
+          </section>
+        `;
+      }
+    }
+
+    window.addEventListener('popstate', renderView);
+    window.addEventListener('DOMContentLoaded', renderView);
+  </script>
+</body>
+</html>
