@@ -1,0 +1,132 @@
+<section class="grid min-h-screen place-items-center p-6">
+  <div class="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900/80 p-6 shadow-2xl backdrop-blur">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold">Acesso</h1>
+      <p class="mt-1 text-sm text-slate-400">Entre na conta ou crie uma nova.</p>
+    </header>
+
+    <div class="mb-6 flex items-center justify-between rounded-xl border border-slate-700 bg-slate-800/70 p-3">
+      <span id="mode-label" class="text-sm font-medium text-slate-200">Modo: Login</span>
+      <button
+        id="mode-switch"
+        type="button"
+        class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+      >
+        Criar conta
+      </button>
+    </div>
+
+    <form id="auth-form" class="space-y-4">
+      <input type="hidden" id="action" name="action" value="login" />
+
+      <div>
+        <label for="nome_de_usuario" class="mb-1 block text-sm text-slate-300">Nome de usuário</label>
+        <input
+          id="nome_de_usuario"
+          name="nome_de_usuario"
+          required
+          minlength="3"
+          maxlength="50"
+          autocomplete="username"
+          class="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 outline-none ring-indigo-500 transition focus:ring-2"
+          placeholder="seu_usuario"
+        />
+      </div>
+
+      <div>
+        <label for="senha" class="mb-1 block text-sm text-slate-300">Senha</label>
+        <input
+          id="senha"
+          name="senha"
+          type="password"
+          required
+          minlength="8"
+          autocomplete="current-password"
+          class="w-full rounded-xl border border-slate-600 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 outline-none ring-indigo-500 transition focus:ring-2"
+          placeholder="••••••••"
+        />
+      </div>
+
+      <button
+        id="submit-button"
+        type="submit"
+        class="w-full rounded-xl bg-emerald-600 px-4 py-2.5 font-semibold text-white transition hover:bg-emerald-500"
+      >
+        Entrar
+      </button>
+    </form>
+
+    <p id="feedback" class="mt-4 min-h-6 text-sm text-slate-300"></p>
+  </div>
+</section>
+
+<script>
+  (() => {
+    const form = document.getElementById('auth-form');
+    const actionInput = document.getElementById('action');
+    const modeSwitch = document.getElementById('mode-switch');
+    const modeLabel = document.getElementById('mode-label');
+    const submitButton = document.getElementById('submit-button');
+    const passwordInput = document.getElementById('senha');
+    const feedback = document.getElementById('feedback');
+
+    let mode = 'login';
+
+    const setFeedback = (message, tone = 'default') => {
+      feedback.textContent = message;
+      feedback.className = 'mt-4 min-h-6 text-sm';
+      if (tone === 'error') feedback.classList.add('text-rose-400');
+      else if (tone === 'success') feedback.classList.add('text-emerald-400');
+      else feedback.classList.add('text-slate-300');
+    };
+
+    const updateMode = () => {
+      const isLogin = mode === 'login';
+      actionInput.value = mode;
+      modeLabel.textContent = `Modo: ${isLogin ? 'Login' : 'Criar conta'}`;
+      modeSwitch.textContent = isLogin ? 'Criar conta' : 'Voltar login';
+      submitButton.textContent = isLogin ? 'Entrar' : 'Criar conta';
+      passwordInput.autocomplete = isLogin ? 'current-password' : 'new-password';
+      setFeedback('');
+    };
+
+    modeSwitch.addEventListener('click', () => {
+      mode = mode === 'login' ? 'register' : 'login';
+      updateMode();
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setFeedback('Processando...');
+
+      const formData = new FormData(form);
+
+      try {
+        const response = await fetch('api/auth.php', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const payload = await response.json();
+
+        if (!response.ok || !payload.success) {
+          throw new Error(payload.message || 'Falha na autenticação.');
+        }
+
+        setFeedback(payload.message, 'success');
+
+        if (mode === 'login') {
+          window.location.hash = 'biblioteca';
+        } else {
+          mode = 'login';
+          form.reset();
+          updateMode();
+        }
+      } catch (error) {
+        setFeedback(error.message, 'error');
+      }
+    });
+
+    updateMode();
+  })();
+</script>
