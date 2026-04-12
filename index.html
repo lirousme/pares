@@ -43,6 +43,16 @@
         }
 
         app.innerHTML = await response.text();
+        const scripts = app.querySelectorAll('script');
+        scripts.forEach((script) => {
+          const executableScript = document.createElement('script');
+          Array.from(script.attributes).forEach((attribute) => {
+            executableScript.setAttribute(attribute.name, attribute.value);
+          });
+          executableScript.textContent = script.textContent;
+          script.replaceWith(executableScript);
+        });
+
         document.dispatchEvent(new CustomEvent('view:loaded', { detail: { viewName } }));
       } catch (error) {
         app.innerHTML = `
