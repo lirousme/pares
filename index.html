@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pares</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+      };
+    </script>
+  </head>
+  <body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
+    <main id="view-root" class="min-h-screen"></main>
+
+    <script>
+      const viewRoot = document.getElementById('view-root');
+
+      const sanitizeView = (raw) => {
+        const fallback = 'login';
+        if (!raw) return fallback;
+        return /^[a-z0-9\-]+$/i.test(raw) ? raw : fallback;
+      };
+
+      const getCurrentView = () => {
+        const hash = window.location.hash.replace('#', '');
+        return sanitizeView(hash || 'login');
+      };
+
+      const renderView = async () => {
+        const view = getCurrentView();
+        try {
+          const response = await fetch(`views/${view}.html`, { cache: 'no-store' });
+          if (!response.ok) throw new Error('View não encontrada');
+          const html = await response.text();
+          viewRoot.innerHTML = html;
+
+          document.dispatchEvent(
+            new CustomEvent('view:loaded', {
+              detail: { view },
+            })
+          );
+        } catch (error) {
+          viewRoot.innerHTML = `
+            <section class="grid min-h-screen place-items-center p-6">
+              <div class="rounded-xl border border-rose-500/40 bg-slate-900/80 p-6 text-center">
+                <h1 class="text-xl font-semibold text-rose-400">Erro ao carregar view</h1>
+                <p class="mt-2 text-slate-300">A página <strong>${view}</strong> não foi encontrada.</p>
+              </div>
+            </section>
+          `;
+        }
+      };
+
+      window.addEventListener('hashchange', renderView);
+      window.addEventListener('DOMContentLoaded', renderView);
+    </script>
+  </body>
+</html>
