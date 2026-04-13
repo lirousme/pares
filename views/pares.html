@@ -1,0 +1,265 @@
+<section class="w-full rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
+  <header class="mb-8 flex items-center justify-between gap-3">
+    <button
+      id="btnVoltarPares"
+      type="button"
+      class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+    >
+      Voltar
+    </button>
+
+    <h1 class="text-xl font-bold text-white">Revisão de pares</h1>
+
+    <button
+      id="btnCriarPares"
+      type="button"
+      class="rounded-lg border border-brand-500/60 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+    >
+      Criar pares
+    </button>
+  </header>
+
+  <div id="feedbackPares" class="hidden mb-4 rounded-lg border p-3 text-sm"></div>
+
+  <div id="conteudoPares" class="flex min-h-[50vh] flex-col items-center justify-center">
+    <div id="cardFlash" class="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
+      <p id="textoCard" class="text-xl font-semibold text-white">Carregando...</p>
+      <p id="metaCard" class="mt-2 text-xs text-slate-400"></p>
+    </div>
+
+    <div class="mt-6 flex items-center gap-3">
+      <button
+        id="btnAnterior"
+        type="button"
+        class="rounded-lg border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+      >
+        Anterior
+      </button>
+      <button
+        id="btnProximo"
+        type="button"
+        class="rounded-lg border border-brand-500/60 bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+      >
+        Próximo
+      </button>
+    </div>
+  </div>
+</section>
+
+<script>
+  (function initParesView() {
+    const btnVoltarPares = document.getElementById('btnVoltarPares');
+    const btnCriarPares = document.getElementById('btnCriarPares');
+    const btnAnterior = document.getElementById('btnAnterior');
+    const btnProximo = document.getElementById('btnProximo');
+    const textoCard = document.getElementById('textoCard');
+    const metaCard = document.getElementById('metaCard');
+    const feedbackPares = document.getElementById('feedbackPares');
+
+    const params = new URLSearchParams(window.location.search);
+    const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
+
+    let pares = [];
+    let indiceParAtual = 0;
+    let indiceCardAtual = 0;
+
+    function showFeedback(message, type = 'error') {
+      feedbackPares.textContent = message;
+      feedbackPares.classList.remove(
+        'hidden',
+        'border-rose-500/40',
+        'bg-rose-500/10',
+        'text-rose-200',
+        'border-emerald-500/40',
+        'bg-emerald-500/10',
+        'text-emerald-200',
+      );
+
+      if (type === 'success') {
+        feedbackPares.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
+      } else {
+        feedbackPares.classList.add('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
+      }
+    }
+
+    function hideFeedback() {
+      feedbackPares.classList.add('hidden');
+    }
+
+    function irParaBiblioteca() {
+      const nextParams = new URLSearchParams(window.location.search);
+      nextParams.set('view', 'biblioteca');
+      nextParams.set('id_pai', String(idDiretorio));
+      nextParams.delete('id_diretorio');
+      const newUrl = `${window.location.pathname}?${nextParams.toString()}`;
+      window.history.pushState({}, '', newUrl);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+
+    function currentPair() {
+      return pares[indiceParAtual] || null;
+    }
+
+    function updateButtons() {
+      const hasPair = currentPair() !== null;
+      btnAnterior.disabled = !hasPair || (indiceParAtual === 0 && indiceCardAtual === 0);
+      btnAnterior.classList.toggle('opacity-50', btnAnterior.disabled);
+      btnAnterior.classList.toggle('cursor-not-allowed', btnAnterior.disabled);
+
+      if (!hasPair) {
+        btnProximo.disabled = true;
+        btnProximo.textContent = 'Próximo';
+        btnProximo.classList.add('opacity-50', 'cursor-not-allowed');
+        return;
+      }
+
+      btnProximo.disabled = false;
+      btnProximo.classList.remove('opacity-50', 'cursor-not-allowed');
+      btnProximo.textContent = indiceCardAtual === 1 ? 'Concluir' : 'Próximo';
+    }
+
+    function renderCard() {
+      const par = currentPair();
+
+      if (!par) {
+        textoCard.textContent = 'Nenhum par encontrado para este diretório.';
+        metaCard.textContent = 'Crie pares para iniciar a revisão.';
+        updateButtons();
+        return;
+      }
+
+      const textos = [
+        par.card_um_texto || 'Card 1 sem texto.',
+        par.card_dois_texto || 'Card 2 sem texto.',
+      ];
+
+      textoCard.textContent = textos[indiceCardAtual];
+      metaCard.textContent = `Par ${indiceParAtual + 1} de ${pares.length} • Card ${indiceCardAtual + 1} de 2`;
+      updateButtons();
+    }
+
+    async function concluirParAtual() {
+      const par = currentPair();
+      if (!par) {
+        return;
+      }
+
+      const response = await fetch('api/pares.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'concluir_revisao',
+          id_par: par.id,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.status === 401) {
+        window.location.href = 'index.html?view=login';
+        return;
+      }
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Não foi possível concluir a revisão.');
+      }
+
+      showFeedback(
+        `Par concluído. Próxima revisão em ${result.proxima_revisao} (UTC-03:00).`,
+        'success',
+      );
+
+      indiceCardAtual = 0;
+      if (indiceParAtual < pares.length - 1) {
+        indiceParAtual += 1;
+      }
+      renderCard();
+    }
+
+    btnVoltarPares.addEventListener('click', irParaBiblioteca);
+
+    btnCriarPares.addEventListener('click', () => {
+      const nextParams = new URLSearchParams(window.location.search);
+      nextParams.set('view', 'criar_pares');
+      nextParams.set('id_diretorio', String(idDiretorio));
+      nextParams.delete('id_pai');
+      const newUrl = `${window.location.pathname}?${nextParams.toString()}`;
+      window.history.pushState({}, '', newUrl);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    btnAnterior.addEventListener('click', () => {
+      hideFeedback();
+
+      if (indiceCardAtual === 1) {
+        indiceCardAtual = 0;
+        renderCard();
+        return;
+      }
+
+      if (indiceParAtual > 0) {
+        indiceParAtual -= 1;
+        indiceCardAtual = 1;
+        renderCard();
+      }
+    });
+
+    btnProximo.addEventListener('click', async () => {
+      hideFeedback();
+
+      if (indiceCardAtual === 0) {
+        indiceCardAtual = 1;
+        renderCard();
+        return;
+      }
+
+      try {
+        await concluirParAtual();
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao concluir revisão.', 'error');
+      }
+    });
+
+    async function loadPairs() {
+      if (Number.isNaN(idDiretorio) || idDiretorio <= 0) {
+        showFeedback('ID do diretório inválido.', 'error');
+        textoCard.textContent = 'Não foi possível carregar os pares.';
+        metaCard.textContent = '';
+        updateButtons();
+        return;
+      }
+
+      hideFeedback();
+
+      try {
+        const response = await fetch(`api/pares.php?id_diretorio=${encodeURIComponent(idDiretorio)}`, {
+          cache: 'no-store',
+        });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível carregar os pares.');
+        }
+
+        pares = Array.isArray(result.pares) ? result.pares : [];
+        indiceParAtual = 0;
+        indiceCardAtual = 0;
+        renderCard();
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao carregar pares.', 'error');
+        textoCard.textContent = 'Erro ao carregar pares.';
+        metaCard.textContent = '';
+        updateButtons();
+      }
+    }
+
+    loadPairs();
+  })();
+</script>

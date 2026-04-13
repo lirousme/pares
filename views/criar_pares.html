@@ -1,0 +1,37 @@
+<section class="w-full rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
+  <header class="mb-6 flex items-center justify-between gap-3">
+    <button
+      id="btnVoltarCriarPares"
+      type="button"
+      class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+    >
+      Voltar
+    </button>
+    <h1 class="text-xl font-bold text-white">Criar pares</h1>
+    <span class="text-xs text-slate-400">Em breve</span>
+  </header>
+
+  <div class="rounded-xl border border-slate-700 bg-slate-950 p-5 text-sm text-slate-300">
+    A criação de pares para o diretório selecionado será implementada aqui.
+  </div>
+</section>
+
+<script>
+  (function initCriarParesView() {
+    const btnVoltar = document.getElementById('btnVoltarCriarPares');
+    const params = new URLSearchParams(window.location.search);
+    const idDiretorio = params.get('id_diretorio');
+
+    btnVoltar.addEventListener('click', () => {
+      const nextParams = new URLSearchParams(window.location.search);
+      nextParams.set('view', 'pares');
+      if (idDiretorio) {
+        nextParams.set('id_diretorio', idDiretorio);
+      }
+      nextParams.delete('id_pai');
+      const newUrl = `${window.location.pathname}?${nextParams.toString()}`;
+      window.history.pushState({}, '', newUrl);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+  })();
+</script>
