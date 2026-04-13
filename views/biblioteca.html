@@ -4,13 +4,23 @@
       <h1 class="text-2xl font-bold text-white">Biblioteca</h1>
       <p id="subtitle" class="mt-1 text-sm text-slate-400">Carregando diretórios...</p>
     </div>
-    <button
-      id="btnVoltar"
-      type="button"
-      class="hidden rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
-    >
-      Voltar
-    </button>
+    <div class="flex items-center gap-2">
+      <button
+        id="btnNovoDiretorio"
+        type="button"
+        class="rounded-lg border border-brand-500/60 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+        aria-label="Criar novo diretório"
+      >
+        +
+      </button>
+      <button
+        id="btnVoltar"
+        type="button"
+        class="hidden rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+      >
+        Voltar
+      </button>
+    </div>
   </header>
 
   <div id="feedback" class="hidden mb-4 rounded-lg border p-3 text-sm"></div>
@@ -24,6 +34,7 @@
     const feedback = document.getElementById('feedback');
     const subtitle = document.getElementById('subtitle');
     const btnVoltar = document.getElementById('btnVoltar');
+    const btnNovoDiretorio = document.getElementById('btnNovoDiretorio');
 
     function getIdPai() {
       const params = new URLSearchParams(window.location.search);
@@ -52,9 +63,19 @@
 
     function showFeedback(message, type = 'error') {
       feedback.textContent = message;
-      feedback.classList.remove('hidden', 'border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
+      feedback.classList.remove(
+        'hidden',
+        'border-rose-500/40',
+        'bg-rose-500/10',
+        'text-rose-200',
+        'border-emerald-500/40',
+        'bg-emerald-500/10',
+        'text-emerald-200',
+      );
       if (type === 'error') {
         feedback.classList.add('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
+      } else if (type === 'success') {
+        feedback.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
       }
     }
 
@@ -124,6 +145,49 @@
     btnVoltar.addEventListener('click', () => {
       window.history.back();
       setTimeout(loadDirectories, 0);
+    });
+
+    btnNovoDiretorio.addEventListener('click', async () => {
+      const nome = window.prompt('Nome do novo diretório:');
+      if (nome === null) {
+        return;
+      }
+
+      const nomeLimpo = nome.trim();
+      if (!nomeLimpo) {
+        showFeedback('Informe um nome válido para o diretório.', 'error');
+        return;
+      }
+
+      try {
+        const idPai = getIdPai();
+        const response = await fetch('api/diretorios.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            nome: nomeLimpo,
+            id_pai: idPai,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível criar o diretório.');
+        }
+
+        showFeedback('Diretório criado com sucesso.', 'success');
+        await loadDirectories();
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao criar diretório.', 'error');
+      }
     });
 
     window.addEventListener('popstate', () => {
