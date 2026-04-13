@@ -28,6 +28,35 @@
   <div id="listaDiretorios" class="space-y-3"></div>
 </section>
 
+<div id="modalDiretorio" class="fixed inset-0 z-40 hidden items-center justify-center bg-slate-950/70 p-4">
+  <div class="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
+    <h2 id="modalTitulo" class="text-lg font-semibold text-white">Novo diretório</h2>
+
+    <form id="formDiretorio" class="mt-4 space-y-4">
+      <div>
+        <label for="inputNome" class="mb-1 block text-sm text-slate-300">Nome</label>
+        <input id="inputNome" name="nome" type="text" maxlength="120" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500" required />
+      </div>
+
+      <div>
+        <label for="selectTipo" class="mb-1 block text-sm text-slate-300">Tipo</label>
+        <select id="selectTipo" name="tipo" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500">
+          <option value="1">Tipo 1 - Diretório</option>
+          <option value="2">Tipo 2 - Pares</option>
+        </select>
+      </div>
+
+      <p id="modalErro" class="hidden rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200"></p>
+
+      <div class="flex items-center justify-end gap-2">
+        <button id="btnExcluir" type="button" class="hidden rounded-lg border border-rose-500/60 bg-rose-600/20 px-3 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-600/30">Excluir</button>
+        <button id="btnCancelarModal" type="button" class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white">Cancelar</button>
+        <button id="btnSalvarModal" type="submit" class="rounded-lg border border-brand-500/60 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-500">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
   (function initBibliotecaView() {
     const listaDiretorios = document.getElementById('listaDiretorios');
@@ -35,6 +64,19 @@
     const subtitle = document.getElementById('subtitle');
     const btnVoltar = document.getElementById('btnVoltar');
     const btnNovoDiretorio = document.getElementById('btnNovoDiretorio');
+
+    const modalDiretorio = document.getElementById('modalDiretorio');
+    const modalTitulo = document.getElementById('modalTitulo');
+    const formDiretorio = document.getElementById('formDiretorio');
+    const inputNome = document.getElementById('inputNome');
+    const selectTipo = document.getElementById('selectTipo');
+    const modalErro = document.getElementById('modalErro');
+    const btnCancelarModal = document.getElementById('btnCancelarModal');
+    const btnSalvarModal = document.getElementById('btnSalvarModal');
+    const btnExcluir = document.getElementById('btnExcluir');
+
+    let modalMode = 'create';
+    let diretorioEditando = null;
 
     function getIdPai() {
       const params = new URLSearchParams(window.location.search);
@@ -83,12 +125,58 @@
       feedback.classList.add('hidden');
     }
 
+    function showModalError(message) {
+      modalErro.textContent = message;
+      modalErro.classList.remove('hidden');
+    }
+
+    function hideModalError() {
+      modalErro.classList.add('hidden');
+    }
+
+    function openCreateModal() {
+      modalMode = 'create';
+      diretorioEditando = null;
+      modalTitulo.textContent = 'Novo diretório';
+      btnSalvarModal.textContent = 'Criar';
+      btnExcluir.classList.add('hidden');
+      inputNome.value = '';
+      selectTipo.value = '1';
+      hideModalError();
+      modalDiretorio.classList.remove('hidden');
+      modalDiretorio.classList.add('flex');
+      inputNome.focus();
+    }
+
+    function openEditModal(diretorio) {
+      modalMode = 'edit';
+      diretorioEditando = diretorio;
+      modalTitulo.textContent = 'Configurar diretório';
+      btnSalvarModal.textContent = 'Salvar';
+      btnExcluir.classList.remove('hidden');
+      inputNome.value = diretorio.nome;
+      selectTipo.value = String(Number.parseInt(diretorio.tipo, 10) === 2 ? 2 : 1);
+      hideModalError();
+      modalDiretorio.classList.remove('hidden');
+      modalDiretorio.classList.add('flex');
+      inputNome.focus();
+    }
+
+    function closeModal() {
+      modalDiretorio.classList.add('hidden');
+      modalDiretorio.classList.remove('flex');
+      hideModalError();
+    }
+
     function createDirectoryCard(diretorio) {
+      const container = document.createElement('div');
+      container.className = 'relative';
+
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'block w-full rounded-xl border border-slate-700 bg-slate-950 p-4 text-left transition hover:border-brand-500/60 hover:bg-slate-900';
+      button.className = 'block w-full rounded-xl border border-slate-700 bg-slate-950 p-4 pr-14 text-left transition hover:border-brand-500/60 hover:bg-slate-900';
       const tipo = Number.parseInt(diretorio.tipo, 10);
-      const tipoLabel = tipo === 2 ? 'Pares' : 'Biblioteca';
+      const tipoLabel = tipo === 2 ? 'Pares' : 'Diretório';
       button.innerHTML = `
         <p class="text-base font-semibold text-white">${diretorio.nome}</p>
         <p class="mt-1 text-xs text-slate-400">ID: ${diretorio.id} • Tipo: ${tipoLabel}</p>
@@ -102,7 +190,20 @@
           window.dispatchEvent(new PopStateEvent('popstate'));
         }
       });
-      return button;
+
+      const btnConfig = document.createElement('button');
+      btnConfig.type = 'button';
+      btnConfig.className = 'absolute right-3 top-3 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-200 transition hover:border-brand-500/60 hover:text-white';
+      btnConfig.textContent = '⚙';
+      btnConfig.setAttribute('aria-label', `Configurar diretório ${diretorio.nome}`);
+      btnConfig.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openEditModal(diretorio);
+      });
+
+      container.appendChild(button);
+      container.appendChild(btnConfig);
+      return container;
     }
 
     async function loadDirectories() {
@@ -154,28 +255,104 @@
       setTimeout(loadDirectories, 0);
     });
 
-    btnNovoDiretorio.addEventListener('click', async () => {
-      const nome = window.prompt('Nome do novo diretório:');
-      if (nome === null) {
+    btnNovoDiretorio.addEventListener('click', () => {
+      openCreateModal();
+    });
+
+    btnCancelarModal.addEventListener('click', closeModal);
+    modalDiretorio.addEventListener('click', (event) => {
+      if (event.target === modalDiretorio) {
+        closeModal();
+      }
+    });
+
+    formDiretorio.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      hideModalError();
+
+      const nome = inputNome.value.trim();
+      const tipo = Number.parseInt(selectTipo.value, 10);
+      if (!nome) {
+        showModalError('Informe um nome válido para o diretório.');
         return;
       }
 
-      const nomeLimpo = nome.trim();
-      if (!nomeLimpo) {
-        showFeedback('Informe um nome válido para o diretório.', 'error');
+      if (tipo !== 1 && tipo !== 2) {
+        showModalError('Tipo inválido.');
         return;
       }
 
       try {
-        const idPai = getIdPai();
+        let response;
+
+        if (modalMode === 'create') {
+          response = await fetch('api/diretorios.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              nome,
+              tipo,
+              id_pai: getIdPai(),
+            }),
+          });
+        } else {
+          response = await fetch('api/diretorios.php', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: diretorioEditando.id,
+              nome,
+              tipo,
+            }),
+          });
+        }
+
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível salvar o diretório.');
+        }
+
+        closeModal();
+        showFeedback(
+          modalMode === 'create' ? 'Diretório criado com sucesso.' : 'Diretório atualizado com sucesso.',
+          'success',
+        );
+        await loadDirectories();
+      } catch (error) {
+        showModalError(error.message || 'Erro inesperado ao salvar diretório.');
+      }
+    });
+
+    btnExcluir.addEventListener('click', async () => {
+      if (!diretorioEditando) {
+        return;
+      }
+
+      const confirmar = window.confirm(`Deseja excluir o diretório "${diretorioEditando.nome}"?`);
+      if (!confirmar) {
+        return;
+      }
+
+      hideModalError();
+
+      try {
         const response = await fetch('api/diretorios.php', {
-          method: 'POST',
+          method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            nome: nomeLimpo,
-            id_pai: idPai,
+            id: diretorioEditando.id,
           }),
         });
 
@@ -187,13 +364,14 @@
         }
 
         if (!response.ok || !result.success) {
-          throw new Error(result.message || 'Não foi possível criar o diretório.');
+          throw new Error(result.message || 'Não foi possível excluir o diretório.');
         }
 
-        showFeedback('Diretório criado com sucesso.', 'success');
+        closeModal();
+        showFeedback('Diretório excluído com sucesso.', 'success');
         await loadDirectories();
       } catch (error) {
-        showFeedback(error.message || 'Erro inesperado ao criar diretório.', 'error');
+        showModalError(error.message || 'Erro inesperado ao excluir diretório.');
       }
     });
 
