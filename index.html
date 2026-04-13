@@ -28,8 +28,13 @@
     const app = document.getElementById('app');
 
     function applyLayout(viewName) {
-      if (viewName === 'login' || viewName === 'pares') {
+      if (viewName === 'login') {
         app.className = 'mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center p-4';
+        return;
+      }
+
+      if (viewName === 'pares') {
+        app.className = 'mx-auto flex min-h-screen w-full max-w-5xl items-stretch justify-center p-4';
         return;
       }
 
