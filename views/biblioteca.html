@@ -1,4 +1,137 @@
 <section class="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
-  <h1 class="text-2xl font-bold text-white">Biblioteca</h1>
-  <p class="mt-2 text-slate-400">Página vazia por enquanto.</p>
+  <header class="mb-5 flex items-center justify-between gap-2">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Biblioteca</h1>
+      <p id="subtitle" class="mt-1 text-sm text-slate-400">Carregando diretórios...</p>
+    </div>
+    <button
+      id="btnVoltar"
+      type="button"
+      class="hidden rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+    >
+      Voltar
+    </button>
+  </header>
+
+  <div id="feedback" class="hidden mb-4 rounded-lg border p-3 text-sm"></div>
+
+  <div id="listaDiretorios" class="space-y-3"></div>
 </section>
+
+<script>
+  (function initBibliotecaView() {
+    const listaDiretorios = document.getElementById('listaDiretorios');
+    const feedback = document.getElementById('feedback');
+    const subtitle = document.getElementById('subtitle');
+    const btnVoltar = document.getElementById('btnVoltar');
+
+    function getIdPai() {
+      const params = new URLSearchParams(window.location.search);
+      const idPai = params.get('id_pai');
+      if (!idPai) {
+        return null;
+      }
+
+      const parsed = Number.parseInt(idPai, 10);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function updateUrl(idPai) {
+      const params = new URLSearchParams(window.location.search);
+      params.set('view', 'biblioteca');
+
+      if (idPai === null) {
+        params.delete('id_pai');
+      } else {
+        params.set('id_pai', String(idPai));
+      }
+
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.pushState({}, '', newUrl);
+    }
+
+    function showFeedback(message, type = 'error') {
+      feedback.textContent = message;
+      feedback.classList.remove('hidden', 'border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
+      if (type === 'error') {
+        feedback.classList.add('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
+      }
+    }
+
+    function hideFeedback() {
+      feedback.classList.add('hidden');
+    }
+
+    function createDirectoryCard(diretorio) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'block w-full rounded-xl border border-slate-700 bg-slate-950 p-4 text-left transition hover:border-brand-500/60 hover:bg-slate-900';
+      button.innerHTML = `
+        <p class="text-base font-semibold text-white">${diretorio.nome}</p>
+        <p class="mt-1 text-xs text-slate-400">ID: ${diretorio.id}</p>
+      `;
+      button.addEventListener('click', () => {
+        updateUrl(diretorio.id);
+        loadDirectories();
+      });
+      return button;
+    }
+
+    async function loadDirectories() {
+      hideFeedback();
+      listaDiretorios.innerHTML = '';
+
+      const idPai = getIdPai();
+      subtitle.textContent = idPai === null
+        ? 'Diretórios de nível raiz (id_pai = null).'
+        : `Diretórios filhos de ID ${idPai}.`;
+      btnVoltar.classList.toggle('hidden', idPai === null);
+
+      try {
+        const endpoint = idPai === null
+          ? 'api/diretorios.php'
+          : `api/diretorios.php?id_pai=${encodeURIComponent(idPai)}`;
+
+        const response = await fetch(endpoint, { cache: 'no-store' });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível carregar os diretórios.');
+        }
+
+        if (!Array.isArray(result.diretorios) || result.diretorios.length === 0) {
+          listaDiretorios.innerHTML = `
+            <div class="rounded-xl border border-slate-700 bg-slate-950 p-4 text-sm text-slate-300">
+              Nenhum diretório encontrado neste nível.
+            </div>
+          `;
+          return;
+        }
+
+        result.diretorios.forEach((diretorio) => {
+          listaDiretorios.appendChild(createDirectoryCard(diretorio));
+        });
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao carregar diretórios.', 'error');
+      }
+    }
+
+    btnVoltar.addEventListener('click', () => {
+      window.history.back();
+      setTimeout(loadDirectories, 0);
+    });
+
+    window.addEventListener('popstate', () => {
+      if (new URLSearchParams(window.location.search).get('view') === 'biblioteca') {
+        loadDirectories();
+      }
+    });
+
+    loadDirectories();
+  })();
+</script>
