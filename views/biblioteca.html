@@ -182,13 +182,19 @@
         <p class="mt-1 text-xs text-slate-400">ID: ${diretorio.id} • Tipo: ${tipoLabel}</p>
       `;
       button.addEventListener('click', () => {
-        const targetView = tipo === 2 ? 'pares' : 'biblioteca';
-        updateUrl(diretorio.id, targetView);
-        if (targetView === 'biblioteca') {
-          loadDirectories();
-        } else {
+        if (tipo === 2) {
+          const params = new URLSearchParams(window.location.search);
+          params.set('view', 'pares');
+          params.set('id_diretorio', String(diretorio.id));
+          params.delete('id_pai');
+          const newUrl = `${window.location.pathname}?${params.toString()}`;
+          window.history.pushState({}, '', newUrl);
           window.dispatchEvent(new PopStateEvent('popstate'));
+          return;
         }
+
+        updateUrl(diretorio.id, 'biblioteca');
+        loadDirectories();
       });
 
       const btnConfig = document.createElement('button');
