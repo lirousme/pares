@@ -22,10 +22,19 @@
   </script>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-  <main id="app" class="mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center p-4"></main>
+  <main id="app" class="mx-auto flex min-h-screen w-full max-w-5xl p-4"></main>
 
   <script>
     const app = document.getElementById('app');
+
+    function applyLayout(viewName) {
+      if (viewName === 'login') {
+        app.className = 'mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center p-4';
+        return;
+      }
+
+      app.className = 'mx-auto flex min-h-screen w-full max-w-5xl items-start justify-center p-4 md:py-8';
+    }
 
     function getViewName() {
       const params = new URLSearchParams(window.location.search);
@@ -35,6 +44,7 @@
     async function renderView() {
       const viewName = getViewName();
       const viewPath = `views/${viewName}.html`;
+      applyLayout(viewName);
 
       try {
         const response = await fetch(viewPath, { cache: 'no-store' });

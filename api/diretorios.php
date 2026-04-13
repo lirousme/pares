@@ -100,6 +100,7 @@ try {
                 'id' => (int) $pdo->lastInsertId(),
                 'nome' => $nome,
                 'id_pai' => $idPai,
+                'tipo' => 1,
                 'id_usuario' => $userId,
             ],
         ]);
@@ -108,10 +109,10 @@ try {
     $idPai = parseIdPai(isset($_GET['id_pai']) ? (string) $_GET['id_pai'] : null);
 
     if ($idPai === null) {
-        $stmt = $pdo->prepare('SELECT id, nome, id_pai FROM diretorios WHERE id_usuario = :id_usuario AND id_pai IS NULL ORDER BY nome ASC');
+        $stmt = $pdo->prepare('SELECT id, nome, id_pai, tipo FROM diretorios WHERE id_usuario = :id_usuario AND id_pai IS NULL ORDER BY nome ASC');
         $stmt->execute(['id_usuario' => $userId]);
     } else {
-        $stmt = $pdo->prepare('SELECT id, nome, id_pai FROM diretorios WHERE id_usuario = :id_usuario AND id_pai = :id_pai ORDER BY nome ASC');
+        $stmt = $pdo->prepare('SELECT id, nome, id_pai, tipo FROM diretorios WHERE id_usuario = :id_usuario AND id_pai = :id_pai ORDER BY nome ASC');
         $stmt->execute([
             'id_usuario' => $userId,
             'id_pai' => $idPai,
