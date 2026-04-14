@@ -133,6 +133,88 @@ try {
         $payload = jsonInput();
         $action = (string) ($payload['action'] ?? '');
 
+        if ($action === 'criar_par_por_texto') {
+            $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
+            $idCardUm = parsePositiveInt($payload['id_card_um'] ?? null, 'ID do card base');
+            $texto = trim((string) ($payload['texto'] ?? ''));
+            $idioma = parseIdioma($payload['idioma'] ?? 'pt-BR');
+
+            if ($texto === '') {
+                respond(422, false, 'Texto do card é obrigatório.');
+            }
+
+            if (mb_strlen($texto) > 1500) {
+                respond(422, false, 'Texto do card deve ter no máximo 1500 caracteres.');
+            }
+
+            $checkDirectory = $pdo->prepare('SELECT id FROM diretorios WHERE id = :id AND id_usuario = :id_usuario LIMIT 1');
+            $checkDirectory->execute([
+                'id' => $idDiretorio,
+                'id_usuario' => $userId,
+            ]);
+
+            if (!$checkDirectory->fetch()) {
+                respond(404, false, 'Diretório não encontrado.');
+            }
+
+            $checkCardUm = $pdo->prepare(
+                'SELECT id
+                 FROM cards
+                 WHERE id = :id_card AND id_diretorio = :id_diretorio
+                 LIMIT 1'
+            );
+            $checkCardUm->execute([
+                'id_card' => $idCardUm,
+                'id_diretorio' => $idDiretorio,
+            ]);
+
+            if (!$checkCardUm->fetch()) {
+                respond(404, false, 'Card base não encontrado no diretório informado.');
+            }
+
+            $pdo->beginTransaction();
+
+            $insertCard = $pdo->prepare(
+                'INSERT INTO cards (id_diretorio, texto, idioma)
+                 VALUES (:id_diretorio, :texto, :idioma)'
+            );
+            $insertCard->execute([
+                'id_diretorio' => $idDiretorio,
+                'texto' => $texto,
+                'idioma' => $idioma,
+            ]);
+
+            $idCardDois = (int) $pdo->lastInsertId();
+
+            $insertPair = $pdo->prepare(
+                'INSERT INTO pares (id_card_um, id_card_dois, id_diretorio)
+                 VALUES (:id_card_um, :id_card_dois, :id_diretorio)'
+            );
+            $insertPair->execute([
+                'id_card_um' => $idCardUm,
+                'id_card_dois' => $idCardDois,
+                'id_diretorio' => $idDiretorio,
+            ]);
+
+            $idPar = (int) $pdo->lastInsertId();
+            $pdo->commit();
+
+            respond(201, true, 'Par criado com sucesso.', [
+                'pair' => [
+                    'id' => $idPar,
+                    'id_card_um' => $idCardUm,
+                    'id_card_dois' => $idCardDois,
+                    'id_diretorio' => $idDiretorio,
+                ],
+                'card' => [
+                    'id' => $idCardDois,
+                    'id_diretorio' => $idDiretorio,
+                    'texto' => $texto,
+                    'idioma' => $idioma,
+                ],
+            ]);
+        }
+
         if ($action === 'criar_card') {
             $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
             $texto = trim((string) ($payload['texto'] ?? ''));
