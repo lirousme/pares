@@ -274,7 +274,10 @@
         }
 
         if (!response.ok || !result.success) {
-          throw new Error(result.message || 'Não foi possível criar o par.');
+          const detail = typeof result.detail === 'string' && result.detail.trim()
+            ? ` Detalhe: ${result.detail.trim()}`
+            : '';
+          throw new Error(`${result.message || 'Não foi possível criar o par.'}${detail}`);
         }
 
         hideFeedback();
