@@ -68,6 +68,7 @@
 
     const params = new URLSearchParams(window.location.search);
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
+    const tipoDiretorio = Number.parseInt(params.get('tipo_diretorio') || '2', 10);
 
     let pares = [];
     let indiceParAtual = 0;
@@ -100,8 +101,13 @@
     function irParaBiblioteca() {
       const nextParams = new URLSearchParams(window.location.search);
       nextParams.set('view', 'biblioteca');
-      nextParams.set('id_pai', String(idDiretorio));
+      if (tipoDiretorio === 1 && Number.isInteger(idDiretorio) && idDiretorio > 0) {
+        nextParams.set('id_pai', String(idDiretorio));
+      } else {
+        nextParams.delete('id_pai');
+      }
       nextParams.delete('id_diretorio');
+      nextParams.delete('tipo_diretorio');
       const newUrl = `${window.location.pathname}?${nextParams.toString()}`;
       window.history.pushState({}, '', newUrl);
       window.dispatchEvent(new PopStateEvent('popstate'));
