@@ -8,7 +8,14 @@
       Voltar
     </button>
     <h1 class="text-xl font-bold text-white">Criar pares</h1>
-    <span class="text-xs text-slate-400">Card inicial</span>
+    <button
+      id="btnNovoCard"
+      type="button"
+      aria-label="Criar novo card"
+      class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-brand-500/60 bg-brand-500/20 text-xl font-bold leading-none text-brand-200 transition hover:border-brand-500 hover:bg-brand-500/30 hover:text-white"
+    >
+      +
+    </button>
   </header>
 
   <div id="feedbackCriarPares" class="mb-4 hidden rounded-lg border p-3 text-sm"></div>
@@ -19,11 +26,79 @@
       <p id="metaCardCriarPares" class="mt-2 text-xs text-slate-400"></p>
     </div>
   </div>
+
+  <div id="modalNovoCard" class="fixed inset-0 z-20 hidden items-center justify-center bg-slate-950/70 p-4">
+    <div class="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-white">Novo card</h2>
+        <button
+          id="btnFecharModalNovoCard"
+          type="button"
+          class="rounded-md border border-slate-700 px-2 py-1 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white"
+        >
+          Fechar
+        </button>
+      </div>
+
+      <form id="formNovoCard" class="space-y-4">
+        <div>
+          <label for="textoNovoCard" class="mb-1 block text-sm text-slate-200">Texto</label>
+          <textarea
+            id="textoNovoCard"
+            name="texto"
+            required
+            rows="4"
+            maxlength="1500"
+            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
+            placeholder="Digite o conteúdo do card"
+          ></textarea>
+        </div>
+
+        <div>
+          <label for="idiomaNovoCard" class="mb-1 block text-sm text-slate-200">Idioma</label>
+          <select
+            id="idiomaNovoCard"
+            name="idioma"
+            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
+          >
+            <option value="pt-BR" selected>pt-BR</option>
+            <option value="en-GB">en-GB</option>
+            <option value="en-US">en-US</option>
+          </select>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button
+            id="btnCancelarNovoCard"
+            type="button"
+            class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+          >
+            Cancelar
+          </button>
+          <button
+            id="btnSalvarNovoCard"
+            type="submit"
+            class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+          >
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </section>
 
 <script>
   (function initCriarParesView() {
     const btnVoltar = document.getElementById('btnVoltarCriarPares');
+    const btnNovoCard = document.getElementById('btnNovoCard');
+    const modalNovoCard = document.getElementById('modalNovoCard');
+    const btnFecharModalNovoCard = document.getElementById('btnFecharModalNovoCard');
+    const btnCancelarNovoCard = document.getElementById('btnCancelarNovoCard');
+    const formNovoCard = document.getElementById('formNovoCard');
+    const textoNovoCard = document.getElementById('textoNovoCard');
+    const idiomaNovoCard = document.getElementById('idiomaNovoCard');
+    const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
     const textoCard = document.getElementById('textoCardCriarPares');
     const metaCard = document.getElementById('metaCardCriarPares');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
@@ -41,6 +116,19 @@
       feedbackCriarPares.classList.add('hidden');
     }
 
+    function openModalNovoCard() {
+      modalNovoCard.classList.remove('hidden');
+      modalNovoCard.classList.add('flex');
+      textoNovoCard.focus();
+    }
+
+    function closeModalNovoCard() {
+      modalNovoCard.classList.add('hidden');
+      modalNovoCard.classList.remove('flex');
+      formNovoCard.reset();
+      idiomaNovoCard.value = 'pt-BR';
+    }
+
     btnVoltar.addEventListener('click', () => {
       const nextParams = new URLSearchParams(window.location.search);
       nextParams.set('view', 'pares');
@@ -51,6 +139,71 @@
       const newUrl = `${window.location.pathname}?${nextParams.toString()}`;
       window.history.pushState({}, '', newUrl);
       window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    btnNovoCard.addEventListener('click', openModalNovoCard);
+    btnFecharModalNovoCard.addEventListener('click', closeModalNovoCard);
+    btnCancelarNovoCard.addEventListener('click', closeModalNovoCard);
+
+    modalNovoCard.addEventListener('click', (event) => {
+      if (event.target === modalNovoCard) {
+        closeModalNovoCard();
+      }
+    });
+
+    formNovoCard.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (Number.isNaN(idDiretorio) || idDiretorio <= 0) {
+        showFeedback('ID do diretório inválido.');
+        return;
+      }
+
+      const texto = textoNovoCard.value.trim();
+      const idioma = idiomaNovoCard.value;
+
+      if (!texto) {
+        showFeedback('Texto do card é obrigatório.');
+        return;
+      }
+
+      btnSalvarNovoCard.disabled = true;
+      btnSalvarNovoCard.textContent = 'Salvando...';
+
+      try {
+        const response = await fetch('api/pares.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'criar_card',
+            id_diretorio: idDiretorio,
+            texto,
+            idioma,
+          }),
+        });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível criar o card.');
+        }
+
+        hideFeedback();
+        closeModalNovoCard();
+        textoCard.textContent = result.card.texto || 'Card sem texto.';
+        metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao criar card.');
+      } finally {
+        btnSalvarNovoCard.disabled = false;
+        btnSalvarNovoCard.textContent = 'Salvar';
+      }
     });
 
     async function loadCardMaisAntigo() {
