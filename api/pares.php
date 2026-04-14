@@ -341,5 +341,13 @@ try {
         $pdo->rollBack();
     }
 
-    respond(500, false, 'Erro interno no servidor.');
+    $detail = 'Erro interno no servidor.';
+    if ($e->getMessage() !== '') {
+        $detail = $e->getMessage();
+    }
+
+    respond(500, false, 'Erro interno no servidor.', [
+        'detail' => $detail,
+    ]);
 }
+
