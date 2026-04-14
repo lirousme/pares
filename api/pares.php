@@ -346,6 +346,23 @@ try {
         $detail = $e->getMessage();
     }
 
+    if ($e instanceof PDOException) {
+        $sqlState = $e->getCode();
+        $mensagemErro = $e->getMessage();
+
+        if (
+            $sqlState === '23000'
+            && (
+                str_contains($mensagemErro, 'card_um_par')
+                || str_contains($mensagemErro, 'card_dois_par')
+            )
+        ) {
+            respond(500, false, 'Estrutura do banco inválida para criar pares.', [
+                'detail' => 'As FKs card_um_par/card_dois_par da tabela pares devem apontar para cards(id). Execute o script sql/fix_pares_foreign_keys.sql no banco.',
+            ]);
+        }
+    }
+
     respond(500, false, 'Erro interno no servidor.', [
         'detail' => $detail,
     ]);
