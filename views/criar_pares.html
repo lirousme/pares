@@ -80,6 +80,15 @@
             class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
             placeholder="Digite o conteúdo do card"
           ></textarea>
+          <div class="mt-2 flex justify-end">
+            <button
+              id="btnTraduzirNovoCard"
+              type="button"
+              class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Traduzir
+            </button>
+          </div>
         </div>
 
         <div>
@@ -126,6 +135,7 @@
     const formNovoCard = document.getElementById('formNovoCard');
     const textoNovoCard = document.getElementById('textoNovoCard');
     const idiomaNovoCard = document.getElementById('idiomaNovoCard');
+    const btnTraduzirNovoCard = document.getElementById('btnTraduzirNovoCard');
     const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
     const textoCard = document.getElementById('textoCardCriarPares');
     const metaCard = document.getElementById('metaCardCriarPares');
@@ -241,6 +251,52 @@
       } finally {
         btnSalvarNovoCard.disabled = false;
         btnSalvarNovoCard.textContent = 'Salvar';
+      }
+    });
+
+    btnTraduzirNovoCard.addEventListener('click', async () => {
+      const texto = textoNovoCard.value.trim();
+      if (!texto) {
+        showFeedback('Digite um texto para traduzir.');
+        return;
+      }
+
+      btnTraduzirNovoCard.disabled = true;
+      btnTraduzirNovoCard.textContent = 'Traduzindo...';
+
+      try {
+        const response = await fetch('api/pares.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'traduzir_texto',
+            texto,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível traduzir o texto.');
+        }
+
+        textoNovoCard.value = result.texto_traduzido || texto;
+        if (typeof result.idioma_destino === 'string' && result.idioma_destino) {
+          idiomaNovoCard.value = result.idioma_destino;
+        }
+        hideFeedback();
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao traduzir texto.');
+      } finally {
+        btnTraduzirNovoCard.disabled = false;
+        btnTraduzirNovoCard.textContent = 'Traduzir';
       }
     });
 

@@ -56,6 +56,151 @@ function parseIdioma(mixed $idioma): string
     return $idiomaNormalizado;
 }
 
+function getOpenAiApiKey(): string
+{
+    $apiKey = trim((string) (getenv('OPENAI_API_KEY') ?: ''));
+    if ($apiKey === '') {
+        respond(500, false, 'OPENAI_API_KEY não configurada no .env.');
+    }
+
+    return $apiKey;
+}
+
+function extractOpenAiText(array $responseData): string
+{
+    $outputText = trim((string) ($responseData['output_text'] ?? ''));
+    if ($outputText !== '') {
+        return $outputText;
+    }
+
+    $output = $responseData['output'] ?? null;
+    if (!is_array($output)) {
+        return '';
+    }
+
+    $chunks = [];
+
+    foreach ($output as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $content = $item['content'] ?? null;
+        if (!is_array($content)) {
+            continue;
+        }
+
+        foreach ($content as $part) {
+            if (!is_array($part)) {
+                continue;
+            }
+
+            $text = trim((string) ($part['text'] ?? ''));
+            if ($text !== '') {
+                $chunks[] = $text;
+            }
+        }
+    }
+
+    return trim(implode("\n", $chunks));
+}
+
+function translateTextWithOpenAi(string $texto): array
+{
+    $apiKey = getOpenAiApiKey();
+    $model = trim((string) (getenv('OPENAI_MODEL') ?: 'gpt-4.1-mini'));
+
+    $payload = [
+        'model' => $model,
+        'input' => [
+            [
+                'role' => 'system',
+                'content' => [
+                    [
+                        'type' => 'input_text',
+                        'text' => 'Você é um tradutor. Detecte automaticamente o idioma do texto de entrada. Se estiver em português brasileiro, traduza para inglês. Se estiver em inglês, traduza para português brasileiro. Responda APENAS com JSON válido no formato {"translated_text":"...","target_language":"pt-BR|en-US"}.',
+                    ],
+                ],
+            ],
+            [
+                'role' => 'user',
+                'content' => [
+                    [
+                        'type' => 'input_text',
+                        'text' => $texto,
+                    ],
+                ],
+            ],
+        ],
+        'temperature' => 0.1,
+    ];
+
+    $ch = curl_init('https://api.openai.com/v1/responses');
+    if ($ch === false) {
+        throw new RuntimeException('Falha ao inicializar requisição de tradução.');
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiKey,
+        ],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_TIMEOUT => 30,
+    ]);
+
+    $rawResponse = curl_exec($ch);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($rawResponse === false) {
+        throw new RuntimeException($curlError !== '' ? $curlError : 'Falha ao chamar serviço de tradução.');
+    }
+
+    $decoded = json_decode($rawResponse, true);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('Resposta inválida do serviço de tradução.');
+    }
+
+    if ($httpCode < 200 || $httpCode >= 300) {
+        $apiMessage = '';
+        if (isset($decoded['error']) && is_array($decoded['error'])) {
+            $apiMessage = trim((string) ($decoded['error']['message'] ?? ''));
+        }
+
+        throw new RuntimeException($apiMessage !== '' ? $apiMessage : 'Falha ao traduzir texto com IA.');
+    }
+
+    $assistantText = extractOpenAiText($decoded);
+    if ($assistantText === '') {
+        throw new RuntimeException('A IA não retornou texto traduzido.');
+    }
+
+    $translationData = json_decode($assistantText, true);
+    if (!is_array($translationData)) {
+        throw new RuntimeException('A IA retornou um formato inesperado de tradução.');
+    }
+
+    $translatedText = trim((string) ($translationData['translated_text'] ?? ''));
+    $targetLanguage = trim((string) ($translationData['target_language'] ?? ''));
+
+    if ($translatedText === '') {
+        throw new RuntimeException('A tradução retornada está vazia.');
+    }
+
+    if (!in_array($targetLanguage, ['pt-BR', 'en-US'], true)) {
+        throw new RuntimeException('Idioma de destino inválido retornado pela IA.');
+    }
+
+    return [
+        'translated_text' => $translatedText,
+        'target_language' => $targetLanguage,
+    ];
+}
+
 startLongSession();
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
@@ -166,6 +311,32 @@ try {
     if ($method === 'POST') {
         $payload = jsonInput();
         $action = (string) ($payload['action'] ?? '');
+
+        if ($action === 'traduzir_texto') {
+            $texto = trim((string) ($payload['texto'] ?? ''));
+
+            if ($texto === '') {
+                respond(422, false, 'Texto para tradução é obrigatório.');
+            }
+
+            if (mb_strlen($texto) > 1500) {
+                respond(422, false, 'Texto para tradução deve ter no máximo 1500 caracteres.');
+            }
+
+            try {
+                $translation = translateTextWithOpenAi($texto);
+            } catch (Throwable $e) {
+                respond(502, false, 'Não foi possível traduzir o texto.', [
+                    'detail' => $e->getMessage(),
+                ]);
+            }
+
+            respond(200, true, 'Texto traduzido com sucesso.', [
+                'texto_original' => $texto,
+                'texto_traduzido' => $translation['translated_text'],
+                'idioma_destino' => $translation['target_language'],
+            ]);
+        }
 
         if ($action === 'alternar_ok_card') {
             $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
