@@ -22,7 +22,14 @@
   <div id="feedbackPares" class="mt-4 hidden rounded-lg border p-3 text-sm"></div>
 
   <div id="conteudoPares" class="flex flex-1 flex-col items-center justify-center">
-    <div id="cardFlash" class="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
+    <div id="cardFlash" class="relative w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
+      <button
+        id="btnToggleOkPar"
+        type="button"
+        class="absolute right-3 top-3 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+      >
+        ok: --
+      </button>
       <p id="textoCard" class="text-xl font-semibold text-white">Carregando...</p>
       <p id="metaCard" class="mt-2 text-xs text-slate-400"></p>
     </div>
@@ -54,6 +61,7 @@
     const btnCriarPares = document.getElementById('btnCriarPares');
     const btnAnterior = document.getElementById('btnAnterior');
     const btnProximo = document.getElementById('btnProximo');
+    const btnToggleOkPar = document.getElementById('btnToggleOkPar');
     const textoCard = document.getElementById('textoCard');
     const metaCard = document.getElementById('metaCard');
     const feedbackPares = document.getElementById('feedbackPares');
@@ -103,6 +111,28 @@
       return pares[indiceParAtual] || null;
     }
 
+    function currentCardId() {
+      const par = currentPair();
+      if (!par) {
+        return null;
+      }
+
+      return indiceCardAtual === 0
+        ? Number.parseInt(par.id_card_um, 10)
+        : Number.parseInt(par.id_card_dois, 10);
+    }
+
+    function currentCardOk() {
+      const par = currentPair();
+      if (!par) {
+        return null;
+      }
+
+      return indiceCardAtual === 0
+        ? Number.parseInt(par.card_um_ok, 10)
+        : Number.parseInt(par.card_dois_ok, 10);
+    }
+
     function updateButtons() {
       const hasPair = currentPair() !== null;
       btnAnterior.disabled = !hasPair || (indiceParAtual === 0 && indiceCardAtual === 0);
@@ -131,6 +161,8 @@
         } else {
           metaCard.textContent = 'Quando houver revisões vencidas, elas aparecerão aqui.';
         }
+        btnToggleOkPar.disabled = true;
+        btnToggleOkPar.classList.add('hidden');
         updateButtons();
         return;
       }
@@ -142,6 +174,9 @@
 
       textoCard.textContent = textos[indiceCardAtual];
       metaCard.textContent = `Par ${indiceParAtual + 1} de ${pares.length} • Card ${indiceCardAtual + 1} de 2`;
+      btnToggleOkPar.classList.remove('hidden');
+      btnToggleOkPar.disabled = false;
+      btnToggleOkPar.textContent = `ok: ${currentCardOk()}`;
       updateButtons();
     }
 
@@ -206,6 +241,52 @@
         indiceParAtual -= 1;
         indiceCardAtual = 1;
         renderCard();
+      }
+    });
+
+    btnToggleOkPar.addEventListener('click', async () => {
+      hideFeedback();
+      const par = currentPair();
+      const idCard = currentCardId();
+      if (!par || !Number.isInteger(idCard) || idCard <= 0) {
+        return;
+      }
+
+      btnToggleOkPar.disabled = true;
+
+      try {
+        const response = await fetch('api/pares.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'alternar_ok_card',
+            id_card: idCard,
+          }),
+        });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível alternar o valor de ok.');
+        }
+
+        const okNovo = Number.parseInt(result.ok_novo, 10);
+        if (indiceCardAtual === 0) {
+          par.card_um_ok = okNovo;
+        } else {
+          par.card_dois_ok = okNovo;
+        }
+        btnToggleOkPar.textContent = `ok: ${okNovo}`;
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao alternar o valor de ok.');
+      } finally {
+        btnToggleOkPar.disabled = false;
       }
     });
 
