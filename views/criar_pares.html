@@ -27,6 +27,27 @@
     </div>
   </div>
 
+  <form id="formRespostaPar" class="mt-6">
+    <div class="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 shadow-lg">
+      <input
+        id="textoRespostaPar"
+        name="texto"
+        type="text"
+        maxlength="1500"
+        required
+        class="h-11 w-full rounded-xl bg-transparent px-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+        placeholder="Digite a mensagem para criar o par..."
+      />
+      <button
+        id="btnEnviarRespostaPar"
+        type="submit"
+        class="inline-flex h-11 min-w-20 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        Enviar
+      </button>
+    </div>
+  </form>
+
   <div id="modalNovoCard" class="fixed inset-0 z-20 hidden items-center justify-center bg-slate-950/70 p-4">
     <div class="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
       <div class="mb-4 flex items-center justify-between">
@@ -102,8 +123,12 @@
     const textoCard = document.getElementById('textoCardCriarPares');
     const metaCard = document.getElementById('metaCardCriarPares');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
+    const formRespostaPar = document.getElementById('formRespostaPar');
+    const textoRespostaPar = document.getElementById('textoRespostaPar');
+    const btnEnviarRespostaPar = document.getElementById('btnEnviarRespostaPar');
     const params = new URLSearchParams(window.location.search);
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
+    let idCardAtual = null;
 
     function showFeedback(message) {
       feedbackCriarPares.textContent = message;
@@ -206,6 +231,65 @@
       }
     });
 
+    formRespostaPar.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (Number.isNaN(idDiretorio) || idDiretorio <= 0) {
+        showFeedback('ID do diretório inválido.');
+        return;
+      }
+
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        showFeedback('Nenhum card ativo disponível para criar o par.');
+        return;
+      }
+
+      const texto = textoRespostaPar.value.trim();
+      if (!texto) {
+        showFeedback('Digite um texto para criar o par.');
+        return;
+      }
+
+      btnEnviarRespostaPar.disabled = true;
+      btnEnviarRespostaPar.textContent = 'Enviando...';
+
+      try {
+        const response = await fetch('api/pares.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'criar_par_por_texto',
+            id_diretorio: idDiretorio,
+            id_card_um: idCardAtual,
+            texto,
+          }),
+        });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível criar o par.');
+        }
+
+        hideFeedback();
+        textoRespostaPar.value = '';
+        showFeedback(`Par criado com sucesso! Card ${result.pair.id_card_dois} vinculado ao card ${result.pair.id_card_um}.`);
+        feedbackCriarPares.classList.remove('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
+        feedbackCriarPares.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao criar par.');
+      } finally {
+        btnEnviarRespostaPar.disabled = false;
+        btnEnviarRespostaPar.textContent = 'Enviar';
+      }
+    });
+
     async function loadCardMaisAntigo() {
       if (Number.isNaN(idDiretorio) || idDiretorio <= 0) {
         showFeedback('ID do diretório inválido.');
@@ -231,14 +315,17 @@
         }
 
         if (!result.card) {
+          idCardAtual = null;
           textoCard.textContent = 'Nenhum card com ok = 1 foi encontrado.';
           metaCard.textContent = `Diretório ${idDiretorio}`;
           return;
         }
 
+        idCardAtual = Number.parseInt(result.card.id, 10);
         textoCard.textContent = result.card.texto || 'Card sem texto.';
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
       } catch (error) {
+        idCardAtual = null;
         showFeedback(error.message || 'Erro inesperado ao carregar card.');
         textoCard.textContent = 'Erro ao carregar o card.';
         metaCard.textContent = '';
