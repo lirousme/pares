@@ -186,6 +186,7 @@
           const params = new URLSearchParams(window.location.search);
           params.set('view', 'pares');
           params.set('id_diretorio', String(diretorio.id));
+          params.set('tipo_diretorio', String(tipo));
           params.delete('id_pai');
           const newUrl = `${window.location.pathname}?${params.toString()}`;
           window.history.pushState({}, '', newUrl);
