@@ -444,7 +444,11 @@
         }
 
         okCardAtual = Number.parseInt(result.ok_novo, 10);
-        btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
+        if (okCardAtual === 1) {
+          btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
+        } else {
+          await loadCardMaisAntigo();
+        }
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao alternar o valor de ok.');
       } finally {
