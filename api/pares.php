@@ -41,6 +41,21 @@ function parsePositiveInt(mixed $value, string $fieldName): int
     respond(422, false, sprintf('%s inválido.', $fieldName));
 }
 
+function parseIdioma(mixed $idioma): string
+{
+    if (!is_string($idioma)) {
+        respond(422, false, 'Idioma inválido.');
+    }
+
+    $idiomaNormalizado = trim($idioma);
+    $idiomasDisponiveis = ['pt-BR', 'en-GB', 'en-US'];
+    if (!in_array($idiomaNormalizado, $idiomasDisponiveis, true)) {
+        respond(422, false, 'Idioma inválido. Use pt-BR, en-GB ou en-US.');
+    }
+
+    return $idiomaNormalizado;
+}
+
 startLongSession();
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
@@ -117,6 +132,49 @@ try {
     if ($method === 'POST') {
         $payload = jsonInput();
         $action = (string) ($payload['action'] ?? '');
+
+        if ($action === 'criar_card') {
+            $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
+            $texto = trim((string) ($payload['texto'] ?? ''));
+            $idioma = parseIdioma($payload['idioma'] ?? 'pt-BR');
+
+            if ($texto === '') {
+                respond(422, false, 'Texto do card é obrigatório.');
+            }
+
+            if (mb_strlen($texto) > 1500) {
+                respond(422, false, 'Texto do card deve ter no máximo 1500 caracteres.');
+            }
+
+            $checkDirectory = $pdo->prepare('SELECT id FROM diretorios WHERE id = :id AND id_usuario = :id_usuario LIMIT 1');
+            $checkDirectory->execute([
+                'id' => $idDiretorio,
+                'id_usuario' => $userId,
+            ]);
+
+            if (!$checkDirectory->fetch()) {
+                respond(404, false, 'Diretório não encontrado.');
+            }
+
+            $insertCard = $pdo->prepare(
+                'INSERT INTO cards (id_diretorio, texto, idioma)
+                 VALUES (:id_diretorio, :texto, :idioma)'
+            );
+            $insertCard->execute([
+                'id_diretorio' => $idDiretorio,
+                'texto' => $texto,
+                'idioma' => $idioma,
+            ]);
+
+            respond(201, true, 'Card criado com sucesso.', [
+                'card' => [
+                    'id' => (int) $pdo->lastInsertId(),
+                    'id_diretorio' => $idDiretorio,
+                    'texto' => $texto,
+                    'idioma' => $idioma,
+                ],
+            ]);
+        }
 
         if ($action !== 'concluir_revisao') {
             respond(422, false, 'Ação inválida.');
