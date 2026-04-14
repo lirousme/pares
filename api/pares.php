@@ -84,7 +84,7 @@ try {
 
         if ($action === 'card_criacao') {
             $stmt = $pdo->prepare(
-                'SELECT id, texto
+                'SELECT id, texto, ok
                  FROM cards
                  WHERE id_diretorio = :id_diretorio AND ok = 1
                  ORDER BY id ASC
@@ -117,6 +117,8 @@ try {
                 p.id_diretorio,
                 c1.texto AS card_um_texto,
                 c2.texto AS card_dois_texto,
+                c1.ok AS card_um_ok,
+                c2.ok AS card_dois_ok,
                 r.quantidade AS revisao_quantidade,
                 r.proxima_revisao
             FROM pares p
@@ -164,6 +166,51 @@ try {
     if ($method === 'POST') {
         $payload = jsonInput();
         $action = (string) ($payload['action'] ?? '');
+
+        if ($action === 'alternar_ok_card') {
+            $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
+
+            $pdo->beginTransaction();
+
+            $selectCard = $pdo->prepare(
+                'SELECT c.id, c.ok
+                 FROM cards c
+                 INNER JOIN diretorios d ON d.id = c.id_diretorio
+                 WHERE c.id = :id_card AND d.id_usuario = :id_usuario
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+            $selectCard->execute([
+                'id_card' => $idCard,
+                'id_usuario' => $userId,
+            ]);
+            $card = $selectCard->fetch();
+
+            if (!$card) {
+                respond(404, false, 'Card não encontrado.');
+            }
+
+            $okAnterior = (int) $card['ok'];
+            $okNovo = $okAnterior === 1 ? 2 : 1;
+
+            $updateCard = $pdo->prepare(
+                'UPDATE cards
+                 SET ok = :ok
+                 WHERE id = :id_card'
+            );
+            $updateCard->execute([
+                'ok' => $okNovo,
+                'id_card' => $idCard,
+            ]);
+
+            $pdo->commit();
+
+            respond(200, true, 'Valor da coluna ok atualizado com sucesso.', [
+                'id_card' => $idCard,
+                'ok_anterior' => $okAnterior,
+                'ok_novo' => $okNovo,
+            ]);
+        }
 
         if ($action === 'criar_par_por_texto') {
             $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
@@ -286,6 +333,7 @@ try {
                     'id_diretorio' => $idDiretorio,
                     'texto' => $texto,
                     'idioma' => $idioma,
+                    'ok' => 1,
                 ],
             ]);
         }

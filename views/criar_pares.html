@@ -21,7 +21,14 @@
   <div id="feedbackCriarPares" class="mb-4 hidden rounded-lg border p-3 text-sm"></div>
 
   <div class="flex flex-1 items-center justify-center">
-    <div class="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
+    <div class="relative w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
+      <button
+        id="btnToggleOkCriarPares"
+        type="button"
+        class="absolute right-3 top-3 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+      >
+        ok: --
+      </button>
       <p id="textoCardCriarPares" class="text-xl font-semibold text-white">Carregando...</p>
       <p id="metaCardCriarPares" class="mt-2 text-xs text-slate-400"></p>
     </div>
@@ -122,6 +129,7 @@
     const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
     const textoCard = document.getElementById('textoCardCriarPares');
     const metaCard = document.getElementById('metaCardCriarPares');
+    const btnToggleOkCriarPares = document.getElementById('btnToggleOkCriarPares');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
     const textoRespostaPar = document.getElementById('textoRespostaPar');
@@ -129,6 +137,7 @@
     const params = new URLSearchParams(window.location.search);
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
     let idCardAtual = null;
+    let okCardAtual = null;
 
     function showFeedback(message) {
       feedbackCriarPares.textContent = message;
@@ -223,6 +232,10 @@
         closeModalNovoCard();
         textoCard.textContent = result.card.texto || 'Card sem texto.';
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
+        idCardAtual = Number.parseInt(result.card.id, 10);
+        okCardAtual = Number.parseInt(result.card.ok, 10);
+        btnToggleOkCriarPares.classList.remove('hidden');
+        btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao criar card.');
       } finally {
@@ -319,21 +332,69 @@
 
         if (!result.card) {
           idCardAtual = null;
+          okCardAtual = null;
           textoCard.textContent = 'Nenhum card com ok = 1 foi encontrado.';
           metaCard.textContent = `Diretório ${idDiretorio}`;
+          btnToggleOkCriarPares.classList.add('hidden');
           return;
         }
 
         idCardAtual = Number.parseInt(result.card.id, 10);
+        okCardAtual = Number.parseInt(result.card.ok, 10);
         textoCard.textContent = result.card.texto || 'Card sem texto.';
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
+        btnToggleOkCriarPares.classList.remove('hidden');
+        btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
       } catch (error) {
         idCardAtual = null;
+        okCardAtual = null;
         showFeedback(error.message || 'Erro inesperado ao carregar card.');
         textoCard.textContent = 'Erro ao carregar o card.';
         metaCard.textContent = '';
+        btnToggleOkCriarPares.classList.add('hidden');
       }
     }
+
+    btnToggleOkCriarPares.addEventListener('click', async () => {
+      hideFeedback();
+
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        showFeedback('Nenhum card ativo disponível para alternar o valor de ok.');
+        return;
+      }
+
+      btnToggleOkCriarPares.disabled = true;
+
+      try {
+        const response = await fetch('api/pares.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'alternar_ok_card',
+            id_card: idCardAtual,
+          }),
+        });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível alternar o valor de ok.');
+        }
+
+        okCardAtual = Number.parseInt(result.ok_novo, 10);
+        btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao alternar o valor de ok.');
+      } finally {
+        btnToggleOkCriarPares.disabled = false;
+      }
+    });
 
     loadCardMaisAntigo();
   })();
