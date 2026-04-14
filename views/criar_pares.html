@@ -1,4 +1,4 @@
-<section class="w-full rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
+<section class="flex min-h-[calc(100vh-2rem)] w-full flex-col rounded-2xl border border-slate-800 bg-slate-900/70 p-6 shadow-2xl backdrop-blur">
   <header class="mb-6 flex items-center justify-between gap-3">
     <button
       id="btnVoltarCriarPares"
@@ -8,30 +8,90 @@
       Voltar
     </button>
     <h1 class="text-xl font-bold text-white">Criar pares</h1>
-    <span class="text-xs text-slate-400">Em breve</span>
+    <span class="text-xs text-slate-400">Card inicial</span>
   </header>
 
-  <div class="rounded-xl border border-slate-700 bg-slate-950 p-5 text-sm text-slate-300">
-    A criação de pares para o diretório selecionado será implementada aqui.
+  <div id="feedbackCriarPares" class="mb-4 hidden rounded-lg border p-3 text-sm"></div>
+
+  <div class="flex flex-1 items-center justify-center">
+    <div class="w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
+      <p id="textoCardCriarPares" class="text-xl font-semibold text-white">Carregando...</p>
+      <p id="metaCardCriarPares" class="mt-2 text-xs text-slate-400"></p>
+    </div>
   </div>
 </section>
 
 <script>
   (function initCriarParesView() {
     const btnVoltar = document.getElementById('btnVoltarCriarPares');
+    const textoCard = document.getElementById('textoCardCriarPares');
+    const metaCard = document.getElementById('metaCardCriarPares');
+    const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const params = new URLSearchParams(window.location.search);
-    const idDiretorio = params.get('id_diretorio');
+    const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
+
+    function showFeedback(message) {
+      feedbackCriarPares.textContent = message;
+      feedbackCriarPares.classList.remove('hidden');
+      feedbackCriarPares.classList.remove('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
+      feedbackCriarPares.classList.add('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
+    }
+
+    function hideFeedback() {
+      feedbackCriarPares.classList.add('hidden');
+    }
 
     btnVoltar.addEventListener('click', () => {
       const nextParams = new URLSearchParams(window.location.search);
       nextParams.set('view', 'pares');
-      if (idDiretorio) {
-        nextParams.set('id_diretorio', idDiretorio);
+      if (!Number.isNaN(idDiretorio) && idDiretorio > 0) {
+        nextParams.set('id_diretorio', String(idDiretorio));
       }
       nextParams.delete('id_pai');
       const newUrl = `${window.location.pathname}?${nextParams.toString()}`;
       window.history.pushState({}, '', newUrl);
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
+
+    async function loadCardMaisAntigo() {
+      if (Number.isNaN(idDiretorio) || idDiretorio <= 0) {
+        showFeedback('ID do diretório inválido.');
+        textoCard.textContent = 'Não foi possível carregar o card.';
+        metaCard.textContent = '';
+        return;
+      }
+
+      hideFeedback();
+
+      try {
+        const endpoint = `api/pares.php?action=card_criacao&id_diretorio=${encodeURIComponent(idDiretorio)}`;
+        const response = await fetch(endpoint, { cache: 'no-store' });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível carregar o card.');
+        }
+
+        if (!result.card) {
+          textoCard.textContent = 'Nenhum card com ok = 1 foi encontrado.';
+          metaCard.textContent = `Diretório ${idDiretorio}`;
+          return;
+        }
+
+        textoCard.textContent = result.card.texto || 'Card sem texto.';
+        metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao carregar card.');
+        textoCard.textContent = 'Erro ao carregar o card.';
+        metaCard.textContent = '';
+      }
+    }
+
+    loadCardMaisAntigo();
   })();
 </script>

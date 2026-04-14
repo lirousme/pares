@@ -53,6 +53,7 @@ try {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
     if ($method === 'GET') {
+        $action = (string) ($_GET['action'] ?? '');
         $idDiretorioParam = $_GET['id_diretorio'] ?? null;
         $idDiretorio = parsePositiveInt($idDiretorioParam, 'ID do diretório');
 
@@ -64,6 +65,30 @@ try {
 
         if (!$checkDirectory->fetch()) {
             respond(404, false, 'Diretório não encontrado.');
+        }
+
+        if ($action === 'card_criacao') {
+            $stmt = $pdo->prepare(
+                'SELECT id, texto
+                 FROM cards
+                 WHERE id_diretorio = :id_diretorio AND ok = 1
+                 ORDER BY id ASC
+                 LIMIT 1'
+            );
+            $stmt->execute(['id_diretorio' => $idDiretorio]);
+            $card = $stmt->fetch();
+
+            if (!$card) {
+                respond(200, true, 'Nenhum card elegível encontrado.', [
+                    'id_diretorio' => $idDiretorio,
+                    'card' => null,
+                ]);
+            }
+
+            respond(200, true, 'Card carregado com sucesso.', [
+                'id_diretorio' => $idDiretorio,
+                'card' => $card,
+            ]);
         }
 
         $stmt = $pdo->prepare(
