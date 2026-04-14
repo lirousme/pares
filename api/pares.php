@@ -106,6 +106,9 @@ try {
             ]);
         }
 
+        $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
+        $agoraFormatado = $agora->format('Y-m-d H:i:s');
+
         $stmt = $pdo->prepare(
             'SELECT
                 p.id,
@@ -113,19 +116,48 @@ try {
                 p.id_card_dois,
                 p.id_diretorio,
                 c1.texto AS card_um_texto,
-                c2.texto AS card_dois_texto
+                c2.texto AS card_dois_texto,
+                r.quantidade AS revisao_quantidade,
+                r.proxima_revisao
             FROM pares p
             LEFT JOIN cards c1 ON c1.id = p.id_card_um
             LEFT JOIN cards c2 ON c2.id = p.id_card_dois
+            LEFT JOIN revisoes r ON r.id_par = p.id AND r.id_usuario = :id_usuario
             WHERE p.id_diretorio = :id_diretorio
-            ORDER BY p.id ASC'
+                AND (r.id IS NULL OR r.proxima_revisao <= :agora)
+            ORDER BY COALESCE(r.proxima_revisao, \'1970-01-01 00:00:00\') ASC, p.id ASC'
         );
-        $stmt->execute(['id_diretorio' => $idDiretorio]);
-        $pares = $stmt->fetchAll();
+        $stmt->execute([
+            'id_diretorio' => $idDiretorio,
+            'id_usuario' => $userId,
+            'agora' => $agoraFormatado,
+        ]);
+        $paresVencidos = $stmt->fetchAll();
+
+        $nextReviewStmt = $pdo->prepare(
+            'SELECT
+                p.id,
+                r.proxima_revisao
+             FROM revisoes r
+             INNER JOIN pares p ON p.id = r.id_par
+             WHERE p.id_diretorio = :id_diretorio
+                AND r.id_usuario = :id_usuario
+                AND r.proxima_revisao > :agora
+             ORDER BY r.proxima_revisao ASC
+             LIMIT 1'
+        );
+        $nextReviewStmt->execute([
+            'id_diretorio' => $idDiretorio,
+            'id_usuario' => $userId,
+            'agora' => $agoraFormatado,
+        ]);
+        $proximaRevisao = $nextReviewStmt->fetch() ?: null;
 
         respond(200, true, 'Pares carregados com sucesso.', [
             'id_diretorio' => $idDiretorio,
-            'pares' => $pares,
+            'pares' => $paresVencidos,
+            'agora' => $agoraFormatado,
+            'proxima_revisao_mais_proxima' => $proximaRevisao,
         ]);
     }
 
@@ -367,4 +399,3 @@ try {
         'detail' => $detail,
     ]);
 }
-

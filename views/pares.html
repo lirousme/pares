@@ -64,6 +64,7 @@
     let pares = [];
     let indiceParAtual = 0;
     let indiceCardAtual = 0;
+    let proximaRevisaoMaisProxima = null;
 
     function showFeedback(message, type = 'error') {
       feedbackPares.textContent = message;
@@ -124,8 +125,12 @@
       const par = currentPair();
 
       if (!par) {
-        textoCard.textContent = 'Nenhum par encontrado para este diretório.';
-        metaCard.textContent = 'Crie pares para iniciar a revisão.';
+        textoCard.textContent = 'Nenhum par vencido para revisão agora.';
+        if (proximaRevisaoMaisProxima && proximaRevisaoMaisProxima.proxima_revisao) {
+          metaCard.textContent = `Próxima revisão prevista para ${proximaRevisaoMaisProxima.proxima_revisao} (UTC-03:00).`;
+        } else {
+          metaCard.textContent = 'Quando houver revisões vencidas, elas aparecerão aqui.';
+        }
         updateButtons();
         return;
       }
@@ -173,11 +178,7 @@
         'success',
       );
 
-      indiceCardAtual = 0;
-      if (indiceParAtual < pares.length - 1) {
-        indiceParAtual += 1;
-      }
-      renderCard();
+      await loadPairs();
     }
 
     btnVoltarPares.addEventListener('click', irParaBiblioteca);
@@ -251,8 +252,17 @@
         }
 
         pares = Array.isArray(result.pares) ? result.pares : [];
+        proximaRevisaoMaisProxima = result.proxima_revisao_mais_proxima || null;
         indiceParAtual = 0;
         indiceCardAtual = 0;
+
+        if (pares.length === 0 && proximaRevisaoMaisProxima && proximaRevisaoMaisProxima.proxima_revisao) {
+          showFeedback(
+            `Nenhum par vencido no momento. Próxima revisão em ${proximaRevisaoMaisProxima.proxima_revisao} (UTC-03:00).`,
+            'success',
+          );
+        }
+
         renderCard();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao carregar pares.', 'error');
