@@ -225,6 +225,49 @@ try {
 
     $diretorios = $stmt->fetchAll();
 
+    $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
+    $agoraFormatado = $agora->format('Y-m-d H:i:s');
+
+    $diretoriosTipoDoisIds = [];
+    foreach ($diretorios as $diretorio) {
+        if ((int) ($diretorio['tipo'] ?? 0) === 2 && isset($diretorio['id'])) {
+            $diretoriosTipoDoisIds[] = (int) $diretorio['id'];
+        }
+    }
+
+    $diretoriosComRevisaoVencida = [];
+    if (count($diretoriosTipoDoisIds) > 0) {
+        $placeholders = implode(',', array_fill(0, count($diretoriosTipoDoisIds), '?'));
+        $revisoesStmt = $pdo->prepare(
+            "SELECT p.id_diretorio
+             FROM pares p
+             LEFT JOIN revisoes r ON r.id_par = p.id AND r.id_usuario = ?
+             WHERE p.id_diretorio IN ($placeholders)
+               AND (r.id IS NULL OR r.proxima_revisao <= ?)
+             GROUP BY p.id_diretorio"
+        );
+
+        $revisoesStmt->execute([
+            $userId,
+            ...$diretoriosTipoDoisIds,
+            $agoraFormatado,
+        ]);
+
+        foreach ($revisoesStmt->fetchAll() as $revisaoDiretorio) {
+            $idDiretorio = (int) ($revisaoDiretorio['id_diretorio'] ?? 0);
+            if ($idDiretorio > 0) {
+                $diretoriosComRevisaoVencida[$idDiretorio] = true;
+            }
+        }
+    }
+
+    foreach ($diretorios as &$diretorio) {
+        $idDiretorio = (int) ($diretorio['id'] ?? 0);
+        $tipoDiretorio = (int) ($diretorio['tipo'] ?? 0);
+        $diretorio['has_revisao_vencida'] = $tipoDiretorio === 2 && isset($diretoriosComRevisaoVencida[$idDiretorio]);
+    }
+    unset($diretorio);
+
     respond(200, true, 'Diretórios carregados com sucesso.', [
         'id_pai' => $idPai,
         'diretorios' => $diretorios,
