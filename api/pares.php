@@ -228,14 +228,25 @@ try {
         }
 
         if ($action === 'card_criacao') {
-            $stmt = $pdo->prepare(
-                'SELECT id, texto, ok
+            $idCardExcluir = null;
+            if (array_key_exists('id_card_excluir', $_GET) && $_GET['id_card_excluir'] !== '') {
+                $idCardExcluir = parsePositiveInt($_GET['id_card_excluir'], 'ID do card para excluir');
+            }
+
+            $query = 'SELECT id, texto, ok
                  FROM cards
-                 WHERE id_diretorio = :id_diretorio AND ok = 1
-                 ORDER BY id ASC
-                 LIMIT 1'
-            );
-            $stmt->execute(['id_diretorio' => $idDiretorio]);
+                 WHERE id_diretorio = :id_diretorio AND ok = 1';
+            $params = ['id_diretorio' => $idDiretorio];
+
+            if ($idCardExcluir !== null) {
+                $query .= ' AND id <> :id_card_excluir';
+                $params['id_card_excluir'] = $idCardExcluir;
+            }
+
+            $query .= ' ORDER BY id ASC LIMIT 1';
+
+            $stmt = $pdo->prepare($query);
+            $stmt->execute($params);
             $card = $stmt->fetch();
 
             if (!$card) {
