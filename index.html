@@ -2,7 +2,7 @@
 <html lang="pt-BR" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Sistema de Biblioteca</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -30,6 +30,14 @@
     #app {
       min-height: 100dvh;
       padding-bottom: calc(1rem + var(--safe-area-bottom));
+    }
+
+    @media (max-width: 1024px) {
+      input,
+      select,
+      textarea {
+        font-size: 16px !important;
+      }
     }
   </style>
 
