@@ -21,7 +21,7 @@
     }
   </script>
 </head>
-<body class="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+<body class="min-h-[100dvh] bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
   <style>
     :root {
       --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -33,23 +33,23 @@
     }
   </style>
 
-  <main id="app" class="mx-auto flex min-h-screen w-full max-w-5xl p-4"></main>
+  <main id="app" class="mx-auto flex min-h-[100dvh] w-full max-w-5xl p-4"></main>
 
   <script>
     const app = document.getElementById('app');
 
     function applyLayout(viewName) {
       if (viewName === 'login') {
-        app.className = 'mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]';
+        app.className = 'mx-auto flex min-h-[100dvh] w-full max-w-5xl items-center justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]';
         return;
       }
 
       if (viewName === 'pares') {
-        app.className = 'mx-auto flex min-h-screen w-full max-w-5xl items-stretch justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]';
+        app.className = 'mx-auto flex min-h-[100dvh] w-full max-w-5xl items-stretch justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]';
         return;
       }
 
-      app.className = 'mx-auto flex min-h-screen w-full max-w-5xl items-start justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:py-8';
+      app.className = 'mx-auto flex min-h-[100dvh] w-full max-w-5xl items-start justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:py-8';
     }
 
     function getViewName() {
