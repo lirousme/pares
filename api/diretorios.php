@@ -225,13 +225,26 @@ try {
 
     $diretorios = $stmt->fetchAll();
 
+    $arvoreStmt = $pdo->prepare('SELECT id, id_pai, tipo FROM diretorios WHERE id_usuario = :id_usuario');
+    $arvoreStmt->execute(['id_usuario' => $userId]);
+    $todosDiretorios = $arvoreStmt->fetchAll();
+
     $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
     $agoraFormatado = $agora->format('Y-m-d H:i:s');
 
     $diretoriosTipoDoisIds = [];
-    foreach ($diretorios as $diretorio) {
-        if ((int) ($diretorio['tipo'] ?? 0) === 2 && isset($diretorio['id'])) {
-            $diretoriosTipoDoisIds[] = (int) $diretorio['id'];
+    $idParaPai = [];
+    foreach ($todosDiretorios as $diretorioArvore) {
+        $idDiretorio = (int) ($diretorioArvore['id'] ?? 0);
+        if ($idDiretorio <= 0) {
+            continue;
+        }
+
+        $idPaiDiretorio = $diretorioArvore['id_pai'];
+        $idParaPai[$idDiretorio] = $idPaiDiretorio === null ? null : (int) $idPaiDiretorio;
+
+        if ((int) ($diretorioArvore['tipo'] ?? 0) === 2) {
+            $diretoriosTipoDoisIds[] = $idDiretorio;
         }
     }
 
@@ -254,17 +267,22 @@ try {
         ]);
 
         foreach ($revisoesStmt->fetchAll() as $revisaoDiretorio) {
-            $idDiretorio = (int) ($revisaoDiretorio['id_diretorio'] ?? 0);
-            if ($idDiretorio > 0) {
-                $diretoriosComRevisaoVencida[$idDiretorio] = true;
+            $idDiretorioVencido = (int) ($revisaoDiretorio['id_diretorio'] ?? 0);
+            if ($idDiretorioVencido <= 0) {
+                continue;
+            }
+
+            $idAtual = $idDiretorioVencido;
+            while ($idAtual !== null && $idAtual > 0 && !isset($diretoriosComRevisaoVencida[$idAtual])) {
+                $diretoriosComRevisaoVencida[$idAtual] = true;
+                $idAtual = $idParaPai[$idAtual] ?? null;
             }
         }
     }
 
     foreach ($diretorios as &$diretorio) {
         $idDiretorio = (int) ($diretorio['id'] ?? 0);
-        $tipoDiretorio = (int) ($diretorio['tipo'] ?? 0);
-        $diretorio['has_revisao_vencida'] = $tipoDiretorio === 2 && isset($diretoriosComRevisaoVencida[$idDiretorio]);
+        $diretorio['has_revisao_vencida'] = isset($diretoriosComRevisaoVencida[$idDiretorio]);
     }
     unset($diretorio);
 
