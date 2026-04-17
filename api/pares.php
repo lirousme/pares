@@ -394,6 +394,54 @@ try {
             ]);
         }
 
+        if ($action === 'editar_card') {
+            $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
+            $texto = trim((string) ($payload['texto'] ?? ''));
+
+            if ($texto === '') {
+                respond(422, false, 'Texto do card é obrigatório.');
+            }
+
+            if (mb_strlen($texto) > 1500) {
+                respond(422, false, 'Texto do card deve ter no máximo 1500 caracteres.');
+            }
+
+            $selectCard = $pdo->prepare(
+                'SELECT c.id, c.id_diretorio
+                 FROM cards c
+                 INNER JOIN diretorios d ON d.id = c.id_diretorio
+                 WHERE c.id = :id_card AND d.id_usuario = :id_usuario
+                 LIMIT 1'
+            );
+            $selectCard->execute([
+                'id_card' => $idCard,
+                'id_usuario' => $userId,
+            ]);
+            $card = $selectCard->fetch();
+
+            if (!$card) {
+                respond(404, false, 'Card não encontrado.');
+            }
+
+            $updateCard = $pdo->prepare(
+                'UPDATE cards
+                 SET texto = :texto
+                 WHERE id = :id_card'
+            );
+            $updateCard->execute([
+                'texto' => $texto,
+                'id_card' => $idCard,
+            ]);
+
+            respond(200, true, 'Card atualizado com sucesso.', [
+                'card' => [
+                    'id' => $idCard,
+                    'id_diretorio' => (int) $card['id_diretorio'],
+                    'texto' => $texto,
+                ],
+            ]);
+        }
+
         if ($action === 'criar_par_por_texto') {
             $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
             $idCardUm = parsePositiveInt($payload['id_card_um'] ?? null, 'ID do card base');
