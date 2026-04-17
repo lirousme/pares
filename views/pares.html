@@ -23,13 +23,22 @@
 
   <div id="conteudoPares" class="flex flex-1 flex-col items-center justify-center">
     <div id="cardFlash" class="relative w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
-      <button
-        id="btnToggleOkPar"
-        type="button"
-        class="absolute right-3 top-3 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
-      >
-        ok: --
-      </button>
+      <div class="absolute right-3 top-3 flex items-center gap-2">
+        <button
+          id="btnConfigCard"
+          type="button"
+          class="rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+        >
+          Config
+        </button>
+        <button
+          id="btnToggleOkPar"
+          type="button"
+          class="rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+        >
+          ok: --
+        </button>
+      </div>
       <p id="textoCard" class="text-xl font-semibold text-white">Carregando...</p>
       <p id="metaCard" class="mt-2 text-xs text-slate-400"></p>
     </div>
@@ -53,6 +62,54 @@
       </button>
     </div>
   </footer>
+
+  <div
+    id="modalEditarCard"
+    class="fixed inset-0 z-30 hidden items-center justify-center bg-slate-950/80 p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="tituloModalEditarCard"
+  >
+    <div class="w-full max-w-xl rounded-xl border border-slate-700 bg-slate-900 p-4 shadow-2xl">
+      <div class="mb-3 flex items-center justify-between gap-3 border-b border-slate-700 pb-3">
+        <h2 id="tituloModalEditarCard" class="text-base font-semibold text-white">Editar card atual</h2>
+        <button
+          id="btnFecharModalEditarCard"
+          type="button"
+          class="rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+        >
+          Fechar
+        </button>
+      </div>
+      <form id="formEditarCard" class="space-y-3">
+        <label for="textoEditarCard" class="block text-sm text-slate-200">Texto do card</label>
+        <textarea
+          id="textoEditarCard"
+          name="texto"
+          rows="6"
+          maxlength="1500"
+          class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
+          required
+        ></textarea>
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button
+            id="btnCancelarEdicaoCard"
+            type="button"
+            class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+          >
+            Cancelar
+          </button>
+          <button
+            id="btnSalvarEdicaoCard"
+            type="submit"
+            class="rounded-lg border border-brand-500/60 bg-brand-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+          >
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </section>
 
 <script>
@@ -62,9 +119,16 @@
     const btnAnterior = document.getElementById('btnAnterior');
     const btnProximo = document.getElementById('btnProximo');
     const btnToggleOkPar = document.getElementById('btnToggleOkPar');
+    const btnConfigCard = document.getElementById('btnConfigCard');
     const textoCard = document.getElementById('textoCard');
     const metaCard = document.getElementById('metaCard');
     const feedbackPares = document.getElementById('feedbackPares');
+    const modalEditarCard = document.getElementById('modalEditarCard');
+    const btnFecharModalEditarCard = document.getElementById('btnFecharModalEditarCard');
+    const btnCancelarEdicaoCard = document.getElementById('btnCancelarEdicaoCard');
+    const formEditarCard = document.getElementById('formEditarCard');
+    const textoEditarCard = document.getElementById('textoEditarCard');
+    const btnSalvarEdicaoCard = document.getElementById('btnSalvarEdicaoCard');
 
     const params = new URLSearchParams(window.location.search);
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
@@ -139,11 +203,55 @@
         : Number.parseInt(par.card_dois_ok, 10);
     }
 
+    function currentCardTexto() {
+      const par = currentPair();
+      if (!par) {
+        return '';
+      }
+
+      return indiceCardAtual === 0
+        ? (par.card_um_texto || '')
+        : (par.card_dois_texto || '');
+    }
+
+    function setCurrentCardTexto(texto) {
+      const par = currentPair();
+      if (!par) {
+        return;
+      }
+
+      if (indiceCardAtual === 0) {
+        par.card_um_texto = texto;
+      } else {
+        par.card_dois_texto = texto;
+      }
+    }
+
+    function abrirModalEdicao() {
+      if (!currentPair()) {
+        return;
+      }
+
+      textoEditarCard.value = currentCardTexto();
+      modalEditarCard.classList.remove('hidden');
+      modalEditarCard.classList.add('flex');
+      textoEditarCard.focus();
+      textoEditarCard.setSelectionRange(textoEditarCard.value.length, textoEditarCard.value.length);
+    }
+
+    function fecharModalEdicao() {
+      modalEditarCard.classList.add('hidden');
+      modalEditarCard.classList.remove('flex');
+    }
+
     function updateButtons() {
       const hasPair = currentPair() !== null;
       btnAnterior.disabled = !hasPair || (indiceParAtual === 0 && indiceCardAtual === 0);
       btnAnterior.classList.toggle('opacity-50', btnAnterior.disabled);
       btnAnterior.classList.toggle('cursor-not-allowed', btnAnterior.disabled);
+      btnConfigCard.disabled = !hasPair;
+      btnConfigCard.classList.toggle('opacity-50', btnConfigCard.disabled);
+      btnConfigCard.classList.toggle('cursor-not-allowed', btnConfigCard.disabled);
 
       if (!hasPair) {
         btnProximo.disabled = true;
@@ -169,6 +277,7 @@
         }
         btnToggleOkPar.disabled = true;
         btnToggleOkPar.classList.add('hidden');
+        btnConfigCard.classList.add('hidden');
         updateButtons();
         return;
       }
@@ -181,6 +290,7 @@
       textoCard.textContent = textos[indiceCardAtual];
       metaCard.textContent = `Par ${indiceParAtual + 1} de ${pares.length} • Card ${indiceCardAtual + 1} de 2`;
       btnToggleOkPar.classList.remove('hidden');
+      btnConfigCard.classList.remove('hidden');
       btnToggleOkPar.disabled = false;
       btnToggleOkPar.textContent = `ok: ${currentCardOk()}`;
       updateButtons();
@@ -293,6 +403,72 @@
         showFeedback(error.message || 'Erro inesperado ao alternar o valor de ok.');
       } finally {
         btnToggleOkPar.disabled = false;
+      }
+    });
+
+    btnConfigCard.addEventListener('click', () => {
+      hideFeedback();
+      abrirModalEdicao();
+    });
+
+    btnFecharModalEditarCard.addEventListener('click', fecharModalEdicao);
+    btnCancelarEdicaoCard.addEventListener('click', fecharModalEdicao);
+    modalEditarCard.addEventListener('click', (event) => {
+      if (event.target === modalEditarCard) {
+        fecharModalEdicao();
+      }
+    });
+
+    formEditarCard.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      hideFeedback();
+
+      const idCard = currentCardId();
+      const texto = textoEditarCard.value.trim();
+      if (!Number.isInteger(idCard) || idCard <= 0) {
+        return;
+      }
+
+      if (!texto) {
+        showFeedback('Digite o texto do card para salvar.');
+        return;
+      }
+
+      btnSalvarEdicaoCard.disabled = true;
+      btnSalvarEdicaoCard.classList.add('opacity-50', 'cursor-not-allowed');
+
+      try {
+        const response = await fetch('api/pares.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'editar_card',
+            id_card: idCard,
+            texto,
+          }),
+        });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível editar o card.');
+        }
+
+        setCurrentCardTexto(result.card?.texto || texto);
+        renderCard();
+        fecharModalEdicao();
+        showFeedback('Card atualizado com sucesso.', 'success');
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao editar card.');
+      } finally {
+        btnSalvarEdicaoCard.disabled = false;
+        btnSalvarEdicaoCard.classList.remove('opacity-50', 'cursor-not-allowed');
       }
     });
 
