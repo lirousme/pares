@@ -46,6 +46,13 @@
         placeholder="Digite a mensagem para criar o par..."
       />
       <button
+        id="btnTraduzirRespostaPar"
+        type="button"
+        class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        Traduzir
+      </button>
+      <button
         id="btnEnviarRespostaPar"
         type="submit"
         class="inline-flex h-11 min-w-20 items-center justify-center rounded-xl bg-brand-600 px-4 text-sm font-semibold text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
@@ -143,6 +150,7 @@
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
     const textoRespostaPar = document.getElementById('textoRespostaPar');
+    const btnTraduzirRespostaPar = document.getElementById('btnTraduzirRespostaPar');
     const btnEnviarRespostaPar = document.getElementById('btnEnviarRespostaPar');
     const params = new URLSearchParams(window.location.search);
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
@@ -297,6 +305,49 @@
       } finally {
         btnTraduzirNovoCard.disabled = false;
         btnTraduzirNovoCard.textContent = 'Traduzir';
+      }
+    });
+
+    btnTraduzirRespostaPar.addEventListener('click', async () => {
+      const texto = textoRespostaPar.value.trim();
+      if (!texto) {
+        showFeedback('Digite um texto no formulário para traduzir.');
+        return;
+      }
+
+      btnTraduzirRespostaPar.disabled = true;
+      btnTraduzirRespostaPar.textContent = 'Traduzindo...';
+
+      try {
+        const response = await fetch('api/pares.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'traduzir_texto',
+            texto,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível traduzir o texto do formulário.');
+        }
+
+        textoRespostaPar.value = result.texto_traduzido || texto;
+        hideFeedback();
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao traduzir texto do formulário.');
+      } finally {
+        btnTraduzirRespostaPar.disabled = false;
+        btnTraduzirRespostaPar.textContent = 'Traduzir';
       }
     });
 
