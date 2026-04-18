@@ -52,15 +52,15 @@
           Enviar
         </button>
       </div>
-      <input
+      <textarea
         id="textoRespostaPar"
         name="texto"
-        type="text"
         maxlength="1500"
         required
-        class="h-11 w-full rounded-xl bg-transparent px-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+        rows="1"
+        class="max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
         placeholder="Digite a mensagem para criar o par..."
-      />
+      ></textarea>
     </div>
   </form>
 
@@ -310,6 +310,14 @@
       }
     });
 
+    function resizeTextoRespostaPar() {
+      textoRespostaPar.style.height = 'auto';
+      textoRespostaPar.style.height = `${Math.min(textoRespostaPar.scrollHeight, 192)}px`;
+    }
+
+    textoRespostaPar.addEventListener('input', resizeTextoRespostaPar);
+    resizeTextoRespostaPar();
+
     btnTraduzirRespostaPar.addEventListener('click', async () => {
       const texto = textoRespostaPar.value.trim();
       if (!texto) {
@@ -344,6 +352,7 @@
         }
 
         textoRespostaPar.value = result.texto_traduzido || texto;
+        resizeTextoRespostaPar();
         hideFeedback();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao traduzir texto do formulário.');
@@ -404,6 +413,7 @@
 
         hideFeedback();
         textoRespostaPar.value = '';
+        resizeTextoRespostaPar();
         showFeedback(`Par criado com sucesso! Card ${result.pair.id_card_dois} vinculado ao card ${result.pair.id_card_um}.`);
         feedbackCriarPares.classList.remove('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
         feedbackCriarPares.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
