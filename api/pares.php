@@ -199,7 +199,7 @@ function translateTextWithOpenAi(string $texto): array
                 'content' => [
                     [
                         'type' => 'input_text',
-                        'text' => 'Você é um tradutor. Detecte automaticamente o idioma do texto de entrada. Se estiver em português brasileiro, traduza para inglês. Se estiver em inglês, traduza para português brasileiro. Responda APENAS com JSON válido no formato {"translated_text":"...","target_language":"pt-BR|en-US"}.',
+                        'text' => 'Você é um tradutor. Detecte automaticamente o idioma do texto de entrada. Se estiver em português brasileiro, traduza para inglês britânico (en-GB). Se estiver em inglês, traduza para português brasileiro. Responda APENAS com JSON válido no formato {"translated_text":"...","target_language":"pt-BR|en-GB"}.',
                     ],
                 ],
             ],
@@ -272,7 +272,7 @@ function translateTextWithOpenAi(string $texto): array
         throw new RuntimeException('A tradução retornada está vazia.');
     }
 
-    if (!in_array($targetLanguage, ['pt-BR', 'en-US'], true)) {
+    if (!in_array($targetLanguage, ['pt-BR', 'en-GB'], true)) {
         throw new RuntimeException('Idioma de destino inválido retornado pela IA.');
     }
 
