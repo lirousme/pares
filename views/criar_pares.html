@@ -36,7 +36,17 @@
 
   <form id="formRespostaPar" class="mt-6">
     <div class="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 shadow-lg">
-      <div class="mb-2 flex justify-end gap-3">
+      <div class="mb-2 flex flex-wrap items-center justify-end gap-3">
+        <label for="idiomaRespostaPar" class="text-sm text-slate-200">Idioma</label>
+        <select
+          id="idiomaRespostaPar"
+          name="idioma"
+          class="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none transition focus:border-brand-500"
+        >
+          <option value="pt-BR" selected>pt-BR</option>
+          <option value="en-GB">en-GB</option>
+          <option value="en-US">en-US</option>
+        </select>
         <button
           id="btnTraduzirRespostaPar"
           type="button"
@@ -152,6 +162,7 @@
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
     const textoRespostaPar = document.getElementById('textoRespostaPar');
+    const idiomaRespostaPar = document.getElementById('idiomaRespostaPar');
     const btnTraduzirRespostaPar = document.getElementById('btnTraduzirRespostaPar');
     const btnEnviarRespostaPar = document.getElementById('btnEnviarRespostaPar');
     const params = new URLSearchParams(window.location.search);
@@ -352,6 +363,9 @@
         }
 
         textoRespostaPar.value = result.texto_traduzido || texto;
+        if (typeof result.idioma_destino === 'string' && result.idioma_destino) {
+          idiomaRespostaPar.value = result.idioma_destino;
+        }
         resizeTextoRespostaPar();
         hideFeedback();
       } catch (error) {
@@ -376,6 +390,7 @@
       }
 
       const texto = textoRespostaPar.value.trim();
+      const idioma = idiomaRespostaPar.value;
       if (!texto) {
         showFeedback('Digite um texto para criar o par.');
         return;
@@ -395,6 +410,7 @@
             id_diretorio: idDiretorio,
             id_card_um: idCardAtual,
             texto,
+            idioma,
           }),
         });
         const result = await response.json();
