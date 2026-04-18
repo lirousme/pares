@@ -56,6 +56,87 @@ function parseIdioma(mixed $idioma): string
     return $idiomaNormalizado;
 }
 
+function getGoogleCloudApiKey(): string
+{
+    $apiKey = trim((string) (getenv('GOOGLE_CLOUD_API_KEY') ?: ''));
+    if ($apiKey === '') {
+        respond(500, false, 'GOOGLE_CLOUD_API_KEY não configurada no .env.');
+    }
+
+    return $apiKey;
+}
+
+function voiceNameByIdioma(string $idioma): string
+{
+    return match ($idioma) {
+        'pt-BR' => 'pt-BR-Chirp3-HD-Enceladus',
+        'en-US' => 'en-US-Chirp3-HD-Enceladus',
+        'en-GB' => 'en-GB-Chirp3-HD-Enceladus',
+        default => throw new RuntimeException('Idioma sem voz configurada.'),
+    };
+}
+
+function synthesizeAudioWithGoogleCloud(string $texto, string $idioma): string
+{
+    $apiKey = getGoogleCloudApiKey();
+    $voiceName = voiceNameByIdioma($idioma);
+
+    $payload = [
+        'input' => [
+            'text' => $texto,
+        ],
+        'voice' => [
+            'languageCode' => $idioma,
+            'name' => $voiceName,
+        ],
+        'audioConfig' => [
+            'audioEncoding' => 'MP3',
+        ],
+    ];
+
+    $endpoint = 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' . rawurlencode($apiKey);
+    $ch = curl_init($endpoint);
+    if ($ch === false) {
+        throw new RuntimeException('Falha ao inicializar requisição de áudio.');
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+        ],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_TIMEOUT => 30,
+    ]);
+
+    $rawResponse = curl_exec($ch);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($rawResponse === false) {
+        throw new RuntimeException($curlError !== '' ? $curlError : 'Falha ao chamar serviço de áudio.');
+    }
+
+    $decoded = json_decode($rawResponse, true);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('Resposta inválida do serviço de áudio.');
+    }
+
+    if ($httpCode < 200 || $httpCode >= 300) {
+        $apiMessage = trim((string) ($decoded['error']['message'] ?? ''));
+        throw new RuntimeException($apiMessage !== '' ? $apiMessage : 'Falha ao gerar áudio.');
+    }
+
+    $audioContent = trim((string) ($decoded['audioContent'] ?? ''));
+    if ($audioContent === '') {
+        throw new RuntimeException('Serviço de áudio não retornou conteúdo.');
+    }
+
+    return $audioContent;
+}
+
 function getOpenAiApiKey(): string
 {
     $apiKey = trim((string) (getenv('OPENAI_API_KEY') ?: ''));
@@ -273,6 +354,8 @@ try {
                 p.id_diretorio,
                 c1.texto AS card_um_texto,
                 c2.texto AS card_dois_texto,
+                c1.audio AS card_um_audio,
+                c2.audio AS card_dois_audio,
                 c1.ok AS card_um_ok,
                 c2.ok AS card_dois_ok,
                 r.quantidade AS revisao_quantidade,
@@ -394,6 +477,60 @@ try {
             ]);
         }
 
+        if ($action === 'gerar_audio_card') {
+            $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
+
+            $selectCard = $pdo->prepare(
+                'SELECT c.id, c.id_diretorio, c.texto, c.idioma
+                 FROM cards c
+                 INNER JOIN diretorios d ON d.id = c.id_diretorio
+                 WHERE c.id = :id_card AND d.id_usuario = :id_usuario
+                 LIMIT 1'
+            );
+            $selectCard->execute([
+                'id_card' => $idCard,
+                'id_usuario' => $userId,
+            ]);
+            $card = $selectCard->fetch();
+
+            if (!$card) {
+                respond(404, false, 'Card não encontrado.');
+            }
+
+            $texto = trim((string) ($card['texto'] ?? ''));
+            $idioma = parseIdioma($card['idioma'] ?? null);
+            if ($texto === '') {
+                respond(422, false, 'Card sem texto para gerar áudio.');
+            }
+
+            try {
+                $audioBase64 = synthesizeAudioWithGoogleCloud($texto, $idioma);
+            } catch (Throwable $e) {
+                respond(502, false, 'Não foi possível gerar o áudio do card.', [
+                    'detail' => $e->getMessage(),
+                ]);
+            }
+
+            $updateCard = $pdo->prepare(
+                'UPDATE cards
+                 SET audio = :audio
+                 WHERE id = :id_card'
+            );
+            $updateCard->execute([
+                'audio' => $audioBase64,
+                'id_card' => $idCard,
+            ]);
+
+            respond(200, true, 'Áudio do card gerado com sucesso.', [
+                'card' => [
+                    'id' => $idCard,
+                    'id_diretorio' => (int) $card['id_diretorio'],
+                    'idioma' => $idioma,
+                    'audio' => $audioBase64,
+                ],
+            ]);
+        }
+
         if ($action === 'editar_card') {
             $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
             $texto = trim((string) ($payload['texto'] ?? ''));
@@ -425,7 +562,7 @@ try {
 
             $updateCard = $pdo->prepare(
                 'UPDATE cards
-                 SET texto = :texto
+                 SET texto = :texto, audio = NULL
                  WHERE id = :id_card'
             );
             $updateCard->execute([
