@@ -107,6 +107,18 @@
             Traduzir
           </button>
         </div>
+        <div>
+          <label for="idiomaEditarCard" class="mb-1 block text-sm text-slate-200"></label>
+          <select
+            id="idiomaEditarCard"
+            name="idioma"
+            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
+          >
+            <option value="pt-BR" selected>pt-BR</option>
+            <option value="en-GB">en-GB</option>
+            <option value="en-US">en-US</option>
+          </select>
+        </div>
         <div class="flex items-center justify-end gap-2 pt-1">
           <button
             id="btnCancelarEdicaoCard"
@@ -145,6 +157,7 @@
     const btnCancelarEdicaoCard = document.getElementById('btnCancelarEdicaoCard');
     const formEditarCard = document.getElementById('formEditarCard');
     const textoEditarCard = document.getElementById('textoEditarCard');
+    const idiomaEditarCard = document.getElementById('idiomaEditarCard');
     const btnTraduzirEditarCard = document.getElementById('btnTraduzirEditarCard');
     const btnSalvarEdicaoCard = document.getElementById('btnSalvarEdicaoCard');
 
@@ -233,6 +246,17 @@
         : (par.card_dois_texto || '');
     }
 
+    function currentCardIdioma() {
+      const par = currentPair();
+      if (!par) {
+        return 'pt-BR';
+      }
+
+      return indiceCardAtual === 0
+        ? (par.card_um_idioma || 'pt-BR')
+        : (par.card_dois_idioma || 'pt-BR');
+    }
+
     function setCurrentCardTexto(texto) {
       const par = currentPair();
       if (!par) {
@@ -243,6 +267,19 @@
         par.card_um_texto = texto;
       } else {
         par.card_dois_texto = texto;
+      }
+    }
+
+    function setCurrentCardIdioma(idioma) {
+      const par = currentPair();
+      if (!par) {
+        return;
+      }
+
+      if (indiceCardAtual === 0) {
+        par.card_um_idioma = idioma;
+      } else {
+        par.card_dois_idioma = idioma;
       }
     }
 
@@ -295,6 +332,7 @@
       }
 
       textoEditarCard.value = currentCardTexto();
+      idiomaEditarCard.value = currentCardIdioma();
       modalEditarCard.classList.remove('hidden');
       modalEditarCard.classList.add('flex');
       textoEditarCard.focus();
@@ -541,6 +579,7 @@
 
       const idCard = currentCardId();
       const texto = textoEditarCard.value.trim();
+      const idioma = idiomaEditarCard.value;
       if (!Number.isInteger(idCard) || idCard <= 0) {
         return;
       }
@@ -563,6 +602,7 @@
             action: 'editar_card',
             id_card: idCard,
             texto,
+            idioma,
           }),
         });
         const result = await response.json();
@@ -577,6 +617,7 @@
         }
 
         setCurrentCardTexto(result.card?.texto || texto);
+        setCurrentCardIdioma(result.card?.idioma || idioma);
         renderCard();
         fecharModalEdicao();
         showFeedback('Card atualizado com sucesso.', 'success');
@@ -621,6 +662,9 @@
         }
 
         textoEditarCard.value = result.texto_traduzido || texto;
+        if (typeof result.idioma_destino === 'string' && result.idioma_destino) {
+          idiomaEditarCard.value = result.idioma_destino;
+        }
         hideFeedback();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao traduzir texto.');
