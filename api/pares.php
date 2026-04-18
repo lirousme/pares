@@ -354,6 +354,8 @@ try {
                 p.id_diretorio,
                 c1.texto AS card_um_texto,
                 c2.texto AS card_dois_texto,
+                c1.idioma AS card_um_idioma,
+                c2.idioma AS card_dois_idioma,
                 c1.audio AS card_um_audio,
                 c2.audio AS card_dois_audio,
                 c1.ok AS card_um_ok,
@@ -534,6 +536,7 @@ try {
         if ($action === 'editar_card') {
             $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
             $texto = trim((string) ($payload['texto'] ?? ''));
+            $idioma = parseIdioma($payload['idioma'] ?? 'pt-BR');
 
             if ($texto === '') {
                 respond(422, false, 'Texto do card é obrigatório.');
@@ -562,11 +565,12 @@ try {
 
             $updateCard = $pdo->prepare(
                 'UPDATE cards
-                 SET texto = :texto, audio = NULL
+                 SET texto = :texto, idioma = :idioma, audio = NULL
                  WHERE id = :id_card'
             );
             $updateCard->execute([
                 'texto' => $texto,
+                'idioma' => $idioma,
                 'id_card' => $idCard,
             ]);
 
@@ -575,6 +579,7 @@ try {
                     'id' => $idCard,
                     'id_diretorio' => (int) $card['id_diretorio'],
                     'texto' => $texto,
+                    'idioma' => $idioma,
                 ],
             ]);
         }
