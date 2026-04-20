@@ -282,6 +282,88 @@ function translateTextWithOpenAi(string $texto): array
     ];
 }
 
+function toRevisionCount(mixed $value): int
+{
+    if (is_int($value)) {
+        return $value;
+    }
+
+    if (is_string($value) && is_numeric($value)) {
+        return (int) $value;
+    }
+
+    return 0;
+}
+
+function reorderPairsByRevisionPriority(array $pairs): array
+{
+    if (count($pairs) <= 1) {
+        return $pairs;
+    }
+
+    usort($pairs, static function (array $a, array $b): int {
+        $countA = toRevisionCount($a['revisao_quantidade'] ?? null);
+        $countB = toRevisionCount($b['revisao_quantidade'] ?? null);
+
+        if ($countA === $countB) {
+            return 0;
+        }
+
+        return $countB <=> $countA;
+    });
+
+    $remaining = $pairs;
+    $ordered = [];
+    $lastCardUm = null;
+
+    while ($remaining !== []) {
+        $highestCount = toRevisionCount($remaining[0]['revisao_quantidade'] ?? null);
+        $eligibleHighest = [];
+        $eligibleHighestIndexes = [];
+
+        foreach ($remaining as $index => $pair) {
+            $currentCount = toRevisionCount($pair['revisao_quantidade'] ?? null);
+            if ($currentCount !== $highestCount) {
+                break;
+            }
+
+            if ($lastCardUm === null || (int) $pair['id_card_um'] !== $lastCardUm) {
+                $eligibleHighest[] = $pair;
+                $eligibleHighestIndexes[] = $index;
+            }
+        }
+
+        $selectedIndex = null;
+
+        if ($eligibleHighest !== []) {
+            $pick = random_int(0, count($eligibleHighest) - 1);
+            $selectedIndex = $eligibleHighestIndexes[$pick];
+        } else {
+            $fallbackHighest = [];
+            $fallbackHighestIndexes = [];
+            foreach ($remaining as $index => $pair) {
+                $currentCount = toRevisionCount($pair['revisao_quantidade'] ?? null);
+                if ($currentCount !== $highestCount) {
+                    break;
+                }
+
+                $fallbackHighest[] = $pair;
+                $fallbackHighestIndexes[] = $index;
+            }
+
+            $pick = random_int(0, count($fallbackHighest) - 1);
+            $selectedIndex = $fallbackHighestIndexes[$pick];
+        }
+
+        $selectedPair = $remaining[$selectedIndex];
+        $ordered[] = $selectedPair;
+        $lastCardUm = (int) $selectedPair['id_card_um'];
+        array_splice($remaining, $selectedIndex, 1);
+    }
+
+    return $ordered;
+}
+
 startLongSession();
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
@@ -375,7 +457,7 @@ try {
             'id_usuario' => $userId,
             'agora' => $agoraFormatado,
         ]);
-        $paresVencidos = $stmt->fetchAll();
+        $paresVencidos = reorderPairsByRevisionPriority($stmt->fetchAll());
 
         $nextReviewStmt = $pdo->prepare(
             'SELECT
