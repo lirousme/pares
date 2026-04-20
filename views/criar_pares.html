@@ -23,6 +23,14 @@
   <div class="flex flex-1 items-center justify-center">
     <div class="relative w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
       <button
+        id="btnToggleAutoplayCriarPares"
+        type="button"
+        class="absolute left-3 top-3 inline-flex items-center gap-1 rounded-md border border-emerald-500/70 bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-200 transition hover:border-emerald-400 hover:text-emerald-100"
+      >
+        <span aria-hidden="true">▶</span>
+        <span>Play</span>
+      </button>
+      <button
         id="btnToggleOkCriarPares"
         type="button"
         class="absolute right-3 top-3 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
@@ -158,6 +166,7 @@
     const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
     const textoCard = document.getElementById('textoCardCriarPares');
     const metaCard = document.getElementById('metaCardCriarPares');
+    const btnToggleAutoplayCriarPares = document.getElementById('btnToggleAutoplayCriarPares');
     const btnToggleOkCriarPares = document.getElementById('btnToggleOkCriarPares');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
@@ -169,6 +178,63 @@
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
     let idCardAtual = null;
     let okCardAtual = null;
+    let audioCardAtualBase64 = '';
+    let audioElementAtual = null;
+    let autoplayAtivo = false;
+
+    function updateAutoplayButton() {
+      const icon = btnToggleAutoplayCriarPares.querySelector('span[aria-hidden="true"]');
+      const label = btnToggleAutoplayCriarPares.querySelector('span:not([aria-hidden])');
+      if (!icon || !label) {
+        return;
+      }
+
+      if (autoplayAtivo) {
+        icon.textContent = '⏸';
+        label.textContent = 'Pause';
+        btnToggleAutoplayCriarPares.classList.remove(
+          'border-emerald-500/70',
+          'bg-emerald-500/20',
+          'text-emerald-200',
+          'hover:border-emerald-400',
+          'hover:text-emerald-100',
+        );
+        btnToggleAutoplayCriarPares.classList.add(
+          'border-amber-500/70',
+          'bg-amber-500/20',
+          'text-amber-200',
+          'hover:border-amber-400',
+          'hover:text-amber-100',
+        );
+      } else {
+        icon.textContent = '▶';
+        label.textContent = 'Play';
+        btnToggleAutoplayCriarPares.classList.remove(
+          'border-amber-500/70',
+          'bg-amber-500/20',
+          'text-amber-200',
+          'hover:border-amber-400',
+          'hover:text-amber-100',
+        );
+        btnToggleAutoplayCriarPares.classList.add(
+          'border-emerald-500/70',
+          'bg-emerald-500/20',
+          'text-emerald-200',
+          'hover:border-emerald-400',
+          'hover:text-emerald-100',
+        );
+      }
+    }
+
+    function stopAutoplay() {
+      autoplayAtivo = false;
+      if (audioElementAtual) {
+        audioElementAtual.pause();
+        audioElementAtual.currentTime = 0;
+        audioElementAtual.onended = null;
+      }
+      updateAutoplayButton();
+    }
 
     function showFeedback(message) {
       feedbackCriarPares.textContent = message;
@@ -265,6 +331,7 @@
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
+        audioCardAtualBase64 = '';
         btnToggleOkCriarPares.classList.remove('hidden');
         btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
       } catch (error) {
@@ -475,6 +542,7 @@
         if (!result.card) {
           idCardAtual = null;
           okCardAtual = null;
+          audioCardAtualBase64 = '';
           textoCard.textContent = 'Nenhum card com ok = 1 foi encontrado.';
           metaCard.textContent = `Diretório ${idDiretorio}`;
           btnToggleOkCriarPares.classList.add('hidden');
@@ -483,6 +551,7 @@
 
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
+        audioCardAtualBase64 = (result.card.audio || '').trim();
         textoCard.textContent = result.card.texto || 'Card sem texto.';
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
         btnToggleOkCriarPares.classList.remove('hidden');
@@ -490,10 +559,96 @@
       } catch (error) {
         idCardAtual = null;
         okCardAtual = null;
+        audioCardAtualBase64 = '';
         showFeedback(error.message || 'Erro inesperado ao carregar card.');
         textoCard.textContent = 'Erro ao carregar o card.';
         metaCard.textContent = '';
         btnToggleOkCriarPares.classList.add('hidden');
+      }
+    }
+
+    async function ensureAudioCardAtual() {
+      if (audioCardAtualBase64) {
+        return audioCardAtualBase64;
+      }
+
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        throw new Error('Nenhum card ativo para tocar áudio.');
+      }
+
+      const response = await fetch('api/pares.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'gerar_audio_card',
+          id_card: idCardAtual,
+        }),
+      });
+      const result = await response.json();
+
+      if (response.status === 401) {
+        window.location.href = 'index.html?view=login';
+        return '';
+      }
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Não foi possível gerar o áudio do card.');
+      }
+
+      audioCardAtualBase64 = (result.card?.audio || '').trim();
+      if (!audioCardAtualBase64) {
+        throw new Error('A API não retornou áudio para este card.');
+      }
+
+      return audioCardAtualBase64;
+    }
+
+    async function avancarCardAutoplay() {
+      const cardAnterior = idCardAtual;
+      await loadCardMaisAntigo(cardAnterior);
+
+      if (idCardAtual === null && Number.isInteger(cardAnterior) && cardAnterior > 0) {
+        await loadCardMaisAntigo();
+      }
+    }
+
+    async function tocarCardAtualEmLoop() {
+      if (!autoplayAtivo) {
+        return;
+      }
+
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        stopAutoplay();
+        return;
+      }
+
+      try {
+        const audioBase64 = await ensureAudioCardAtual();
+        if (!autoplayAtivo || !audioBase64) {
+          return;
+        }
+
+        if (audioElementAtual) {
+          audioElementAtual.pause();
+          audioElementAtual.currentTime = 0;
+          audioElementAtual.onended = null;
+        }
+
+        audioElementAtual = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+        audioElementAtual.onended = async () => {
+          if (!autoplayAtivo) {
+            return;
+          }
+          await avancarCardAutoplay();
+          await tocarCardAtualEmLoop();
+        };
+
+        await audioElementAtual.play();
+      } catch (error) {
+        stopAutoplay();
+        showFeedback(error.message || 'Erro inesperado ao iniciar autoplay.');
       }
     }
 
@@ -535,6 +690,9 @@
           btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
         } else {
           await loadCardMaisAntigo(idCardAnterior);
+          if (autoplayAtivo) {
+            await tocarCardAtualEmLoop();
+          }
         }
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao alternar o valor de ok.');
@@ -543,6 +701,18 @@
       }
     });
 
+    btnToggleAutoplayCriarPares.addEventListener('click', async () => {
+      if (autoplayAtivo) {
+        stopAutoplay();
+        return;
+      }
+
+      autoplayAtivo = true;
+      updateAutoplayButton();
+      await tocarCardAtualEmLoop();
+    });
+
+    updateAutoplayButton();
     loadCardMaisAntigo();
   })();
 </script>

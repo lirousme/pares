@@ -407,7 +407,7 @@ try {
                 $idCardExcluir = parsePositiveInt($_GET['id_card_excluir'], 'ID do card para excluir');
             }
 
-            $query = 'SELECT id, texto, ok
+            $query = 'SELECT id, texto, ok, audio
                  FROM cards
                  WHERE id_diretorio = :id_diretorio AND ok = 1';
             $params = ['id_diretorio' => $idDiretorio];
