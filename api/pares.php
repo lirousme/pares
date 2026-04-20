@@ -137,6 +137,17 @@ function synthesizeAudioWithGoogleCloud(string $texto, string $idioma): string
     return $audioContent;
 }
 
+function synthesizeCardAudioOrRespond(string $texto, string $idioma): string
+{
+    try {
+        return synthesizeAudioWithGoogleCloud($texto, $idioma);
+    } catch (Throwable $e) {
+        respond(502, false, 'Não foi possível gerar o áudio do card.', [
+            'detail' => $e->getMessage(),
+        ]);
+    }
+}
+
 function getOpenAiApiKey(): string
 {
     $apiKey = trim((string) (getenv('OPENAI_API_KEY') ?: ''));
@@ -705,16 +716,19 @@ try {
                 respond(404, false, 'Card base não encontrado no diretório informado.');
             }
 
+            $audioBase64 = synthesizeCardAudioOrRespond($texto, $idioma);
+
             $pdo->beginTransaction();
 
             $insertCard = $pdo->prepare(
-                'INSERT INTO cards (id_diretorio, texto, idioma)
-                 VALUES (:id_diretorio, :texto, :idioma)'
+                'INSERT INTO cards (id_diretorio, texto, idioma, audio)
+                 VALUES (:id_diretorio, :texto, :idioma, :audio)'
             );
             $insertCard->execute([
                 'id_diretorio' => $idDiretorio,
                 'texto' => $texto,
                 'idioma' => $idioma,
+                'audio' => $audioBase64,
             ]);
 
             $idCardDois = (int) $pdo->lastInsertId();
@@ -744,6 +758,7 @@ try {
                     'id_diretorio' => $idDiretorio,
                     'texto' => $texto,
                     'idioma' => $idioma,
+                    'audio' => $audioBase64,
                 ],
             ]);
         }
@@ -771,14 +786,17 @@ try {
                 respond(404, false, 'Diretório não encontrado.');
             }
 
+            $audioBase64 = synthesizeCardAudioOrRespond($texto, $idioma);
+
             $insertCard = $pdo->prepare(
-                'INSERT INTO cards (id_diretorio, texto, idioma)
-                 VALUES (:id_diretorio, :texto, :idioma)'
+                'INSERT INTO cards (id_diretorio, texto, idioma, audio)
+                 VALUES (:id_diretorio, :texto, :idioma, :audio)'
             );
             $insertCard->execute([
                 'id_diretorio' => $idDiretorio,
                 'texto' => $texto,
                 'idioma' => $idioma,
+                'audio' => $audioBase64,
             ]);
 
             respond(201, true, 'Card criado com sucesso.', [
@@ -787,6 +805,7 @@ try {
                     'id_diretorio' => $idDiretorio,
                     'texto' => $texto,
                     'idioma' => $idioma,
+                    'audio' => $audioBase64,
                     'ok' => 1,
                 ],
             ]);
