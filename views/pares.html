@@ -23,6 +23,14 @@
 
   <div id="conteudoPares" class="flex flex-1 flex-col items-center justify-center">
     <div id="cardFlash" class="relative w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
+      <button
+        id="btnToggleAutoplayPares"
+        type="button"
+        class="absolute left-3 top-3 inline-flex items-center gap-1 rounded-md border border-emerald-500/70 bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-200 transition hover:border-emerald-400 hover:text-emerald-100"
+      >
+        <span aria-hidden="true">▶</span>
+        <span>Play</span>
+      </button>
       <div class="absolute right-3 top-3 flex items-center gap-2">
         <button
           id="btnConfigCard"
@@ -147,6 +155,7 @@
     const btnAnterior = document.getElementById('btnAnterior');
     const btnProximo = document.getElementById('btnProximo');
     const btnToggleOkPar = document.getElementById('btnToggleOkPar');
+    const btnToggleAutoplayPares = document.getElementById('btnToggleAutoplayPares');
     const btnConfigCard = document.getElementById('btnConfigCard');
     const btnGerarAudioCard = document.getElementById('btnGerarAudioCard');
     const textoCard = document.getElementById('textoCard');
@@ -170,6 +179,8 @@
     let indiceCardAtual = 0;
     let proximaRevisaoMaisProxima = null;
     let audioCardAtual = null;
+    let autoplayAtivo = false;
+    let autoplayPromise = null;
 
     function showFeedback(message, type = 'error') {
       feedbackPares.textContent = message;
@@ -192,6 +203,59 @@
 
     function hideFeedback() {
       feedbackPares.classList.add('hidden');
+    }
+
+    function updateAutoplayButton() {
+      const icon = btnToggleAutoplayPares.querySelector('span[aria-hidden="true"]');
+      const label = btnToggleAutoplayPares.querySelector('span:not([aria-hidden])');
+      if (!icon || !label) {
+        return;
+      }
+
+      if (autoplayAtivo) {
+        icon.textContent = '⏸';
+        label.textContent = 'Pause';
+        btnToggleAutoplayPares.classList.remove(
+          'border-emerald-500/70',
+          'bg-emerald-500/20',
+          'text-emerald-200',
+          'hover:border-emerald-400',
+          'hover:text-emerald-100',
+        );
+        btnToggleAutoplayPares.classList.add(
+          'border-amber-500/70',
+          'bg-amber-500/20',
+          'text-amber-200',
+          'hover:border-amber-400',
+          'hover:text-amber-100',
+        );
+      } else {
+        icon.textContent = '▶';
+        label.textContent = 'Play';
+        btnToggleAutoplayPares.classList.remove(
+          'border-amber-500/70',
+          'bg-amber-500/20',
+          'text-amber-200',
+          'hover:border-amber-400',
+          'hover:text-amber-100',
+        );
+        btnToggleAutoplayPares.classList.add(
+          'border-emerald-500/70',
+          'bg-emerald-500/20',
+          'text-emerald-200',
+          'hover:border-emerald-400',
+          'hover:text-emerald-100',
+        );
+      }
+    }
+
+    function stopAutoplay() {
+      autoplayAtivo = false;
+      if (audioCardAtual) {
+        audioCardAtual.pause();
+        audioCardAtual.currentTime = 0;
+      }
+      updateAutoplayButton();
     }
 
     function irParaBiblioteca() {
@@ -326,6 +390,66 @@
       }
     }
 
+    async function ensureCurrentCardAudio() {
+      const existente = currentCardAudio();
+      if (existente) {
+        return existente;
+      }
+
+      const idCard = currentCardId();
+      if (!Number.isInteger(idCard) || idCard <= 0) {
+        throw new Error('Nenhum card ativo para tocar áudio.');
+      }
+
+      const response = await fetch('api/pares.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'gerar_audio_card',
+          id_card: idCard,
+        }),
+      });
+      const result = await response.json();
+
+      if (response.status === 401) {
+        window.location.href = 'index.html?view=login';
+        return '';
+      }
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Não foi possível gerar o áudio do card.');
+      }
+
+      const audio = (result.card?.audio || '').trim();
+      if (!audio) {
+        throw new Error('A API não retornou áudio para este card.');
+      }
+
+      setCurrentCardAudio(audio);
+      return audio;
+    }
+
+    async function playCurrentCardAudioAndWait() {
+      const audioBase64 = await ensureCurrentCardAudio();
+      if (!audioBase64 || !autoplayAtivo) {
+        return;
+      }
+
+      if (audioCardAtual) {
+        audioCardAtual.pause();
+        audioCardAtual.currentTime = 0;
+      }
+
+      audioCardAtual = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      await new Promise((resolve, reject) => {
+        audioCardAtual.onended = resolve;
+        audioCardAtual.onerror = () => reject(new Error('Erro ao reproduzir áudio do card.'));
+        audioCardAtual.play().catch(reject);
+      });
+    }
+
     function abrirModalEdicao() {
       if (!currentPair()) {
         return;
@@ -368,7 +492,7 @@
       btnProximo.textContent = indiceCardAtual === 1 ? 'Concluir' : 'Próximo';
     }
 
-    function renderCard() {
+    function renderCard({ playAudio = true } = {}) {
       const par = currentPair();
 
       if (!par) {
@@ -399,7 +523,9 @@
       btnToggleOkPar.disabled = false;
       btnToggleOkPar.textContent = `ok: ${currentCardOk()}`;
       updateButtons();
-      playCurrentCardAudio();
+      if (playAudio) {
+        playCurrentCardAudio();
+      }
     }
 
     async function concluirParAtual() {
@@ -438,9 +564,39 @@
       await loadPairs();
     }
 
+    async function avancarAutoplay() {
+      if (indiceCardAtual === 0) {
+        indiceCardAtual = 1;
+        renderCard({ playAudio: false });
+        return;
+      }
+
+      await concluirParAtual();
+    }
+
+    async function runAutoplayPares() {
+      while (autoplayAtivo) {
+        if (!currentPair()) {
+          await loadPairs();
+          if (!currentPair()) {
+            stopAutoplay();
+            return;
+          }
+        }
+
+        await playCurrentCardAudioAndWait();
+        if (!autoplayAtivo) {
+          return;
+        }
+
+        await avancarAutoplay();
+      }
+    }
+
     btnVoltarPares.addEventListener('click', irParaBiblioteca);
 
     btnCriarPares.addEventListener('click', () => {
+      stopAutoplay();
       const nextParams = new URLSearchParams(window.location.search);
       nextParams.set('view', 'criar_pares');
       nextParams.set('id_diretorio', String(idDiretorio));
@@ -451,6 +607,7 @@
     });
 
     btnAnterior.addEventListener('click', () => {
+      stopAutoplay();
       hideFeedback();
 
       if (indiceCardAtual === 1) {
@@ -467,6 +624,7 @@
     });
 
     btnToggleOkPar.addEventListener('click', async () => {
+      stopAutoplay();
       hideFeedback();
       const par = currentPair();
       const idCard = currentCardId();
@@ -513,11 +671,13 @@
     });
 
     btnConfigCard.addEventListener('click', () => {
+      stopAutoplay();
       hideFeedback();
       abrirModalEdicao();
     });
 
     btnGerarAudioCard.addEventListener('click', async () => {
+      stopAutoplay();
       hideFeedback();
       const idCard = currentCardId();
       if (!Number.isInteger(idCard) || idCard <= 0) {
@@ -675,6 +835,7 @@
     });
 
     btnProximo.addEventListener('click', async () => {
+      stopAutoplay();
       hideFeedback();
 
       if (indiceCardAtual === 0) {
@@ -687,6 +848,25 @@
         await concluirParAtual();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao concluir revisão.', 'error');
+      }
+    });
+
+    btnToggleAutoplayPares.addEventListener('click', async () => {
+      if (autoplayAtivo) {
+        stopAutoplay();
+        return;
+      }
+
+      autoplayAtivo = true;
+      updateAutoplayButton();
+      autoplayPromise = runAutoplayPares();
+      try {
+        await autoplayPromise;
+      } catch (error) {
+        stopAutoplay();
+        showFeedback(error.message || 'Erro inesperado ao iniciar autoplay.', 'error');
+      } finally {
+        autoplayPromise = null;
       }
     });
 
@@ -737,6 +917,7 @@
       }
     }
 
+    updateAutoplayButton();
     loadPairs();
   })();
 </script>
