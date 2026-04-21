@@ -30,6 +30,7 @@
         ok: --
       </button>
       <p id="textoCardCriarPares" class="text-xl font-semibold text-white">Carregando...</p>
+      <p id="textoCardCriarParesPtBr" class="mt-3 text-lg font-semibold text-emerald-300"></p>
       <p id="metaCardCriarPares" class="mt-2 text-xs text-slate-400"></p>
     </div>
   </div>
@@ -156,6 +157,7 @@
     const btnTraduzirNovoCard = document.getElementById('btnTraduzirNovoCard');
     const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
     const textoCard = document.getElementById('textoCardCriarPares');
+    const textoCardPtBr = document.getElementById('textoCardCriarParesPtBr');
     const metaCard = document.getElementById('metaCardCriarPares');
     const btnToggleOkCriarPares = document.getElementById('btnToggleOkCriarPares');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
@@ -169,6 +171,19 @@
     let idCardAtual = null;
     let okCardAtual = null;
     let audioCardAtualBase64 = '';
+
+    function renderTextoCard(card = null) {
+      if (!card) {
+        textoCard.textContent = 'Card sem texto.';
+        textoCardPtBr.textContent = '';
+        return;
+      }
+
+      const textoEnGb = (card.texto_engb || card.texto || '').trim();
+      const textoPtBr = (card.texto_ptbr || '').trim();
+      textoCard.textContent = textoEnGb || 'Card sem texto.';
+      textoCardPtBr.textContent = textoPtBr;
+    }
 
     function showFeedback(message) {
       feedbackCriarPares.textContent = message;
@@ -260,7 +275,7 @@
 
         hideFeedback();
         closeModalNovoCard();
-        textoCard.textContent = result.card.texto || 'Card sem texto.';
+        renderTextoCard(result.card);
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
@@ -454,6 +469,7 @@
       if (Number.isNaN(idDiretorio) || idDiretorio <= 0) {
         showFeedback('ID do diretório inválido.');
         textoCard.textContent = 'Não foi possível carregar o card.';
+        textoCardPtBr.textContent = '';
         metaCard.textContent = '';
         return;
       }
@@ -486,6 +502,7 @@
           okCardAtual = null;
           audioCardAtualBase64 = '';
           textoCard.textContent = 'Nenhum card com ok = 1 foi encontrado.';
+          textoCardPtBr.textContent = '';
           metaCard.textContent = `Diretório ${idDiretorio}`;
           btnToggleOkCriarPares.classList.add('hidden');
           return;
@@ -494,7 +511,7 @@
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
         audioCardAtualBase64 = (result.card.audio || '').trim();
-        textoCard.textContent = result.card.texto || 'Card sem texto.';
+        renderTextoCard(result.card);
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
         btnToggleOkCriarPares.classList.remove('hidden');
         btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
@@ -504,6 +521,7 @@
         audioCardAtualBase64 = '';
         showFeedback(error.message || 'Erro inesperado ao carregar card.');
         textoCard.textContent = 'Erro ao carregar o card.';
+        textoCardPtBr.textContent = '';
         metaCard.textContent = '';
         btnToggleOkCriarPares.classList.add('hidden');
       }
