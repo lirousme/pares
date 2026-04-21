@@ -41,21 +41,6 @@ function parsePositiveInt(mixed $value, string $fieldName): int
     respond(422, false, sprintf('%s inválido.', $fieldName));
 }
 
-function parseIdioma(mixed $idioma): string
-{
-    if (!is_string($idioma)) {
-        respond(422, false, 'Idioma inválido.');
-    }
-
-    $idiomaNormalizado = trim($idioma);
-    $idiomasDisponiveis = ['pt-BR', 'en-GB', 'en-US'];
-    if (!in_array($idiomaNormalizado, $idiomasDisponiveis, true)) {
-        respond(422, false, 'Idioma inválido. Use pt-BR, en-GB ou en-US.');
-    }
-
-    return $idiomaNormalizado;
-}
-
 function getGoogleCloudApiKey(): string
 {
     $apiKey = trim((string) (getenv('GOOGLE_CLOUD_API_KEY') ?: ''));
@@ -146,6 +131,14 @@ function synthesizeCardAudioOrRespond(string $texto, string $idioma): string
             'detail' => $e->getMessage(),
         ]);
     }
+}
+
+function synthesizeCardAudiosOrRespond(string $textoEnGb, string $textoPtBr): array
+{
+    return [
+        'audio_engb' => synthesizeCardAudioOrRespond($textoEnGb, 'en-GB'),
+        'audio_ptbr' => synthesizeCardAudioOrRespond($textoPtBr, 'pt-BR'),
+    ];
 }
 
 function getOpenAiApiKey(): string
@@ -407,7 +400,7 @@ try {
                 $idCardExcluir = parsePositiveInt($_GET['id_card_excluir'], 'ID do card para excluir');
             }
 
-            $query = 'SELECT id, texto, ok, audio
+            $query = 'SELECT id, texto_engb AS texto, texto_ptbr, ok, audio_engb AS audio, audio_ptbr
                  FROM cards
                  WHERE id_diretorio = :id_diretorio AND ok = 1';
             $params = ['id_diretorio' => $idDiretorio];
@@ -445,12 +438,14 @@ try {
                 p.id_card_um,
                 p.id_card_dois,
                 p.id_diretorio,
-                c1.texto AS card_um_texto,
-                c2.texto AS card_dois_texto,
-                c1.idioma AS card_um_idioma,
-                c2.idioma AS card_dois_idioma,
-                c1.audio AS card_um_audio,
-                c2.audio AS card_dois_audio,
+                c1.texto_engb AS card_um_texto,
+                c2.texto_engb AS card_dois_texto,
+                c1.texto_ptbr AS card_um_texto_ptbr,
+                c2.texto_ptbr AS card_dois_texto_ptbr,
+                c1.audio_engb AS card_um_audio,
+                c2.audio_engb AS card_dois_audio,
+                c1.audio_ptbr AS card_um_audio_ptbr,
+                c2.audio_ptbr AS card_dois_audio_ptbr,
                 c1.ok AS card_um_ok,
                 c2.ok AS card_dois_ok,
                 r.quantidade AS revisao_quantidade,
@@ -576,7 +571,7 @@ try {
             $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
 
             $selectCard = $pdo->prepare(
-                'SELECT c.id, c.id_diretorio, c.texto, c.idioma
+                'SELECT c.id, c.id_diretorio, c.texto_engb, c.texto_ptbr
                  FROM cards c
                  INNER JOIN diretorios d ON d.id = c.id_diretorio
                  WHERE c.id = :id_card AND d.id_usuario = :id_usuario
@@ -592,27 +587,22 @@ try {
                 respond(404, false, 'Card não encontrado.');
             }
 
-            $texto = trim((string) ($card['texto'] ?? ''));
-            $idioma = parseIdioma($card['idioma'] ?? null);
-            if ($texto === '') {
-                respond(422, false, 'Card sem texto para gerar áudio.');
+            $textoEnGb = trim((string) ($card['texto_engb'] ?? ''));
+            $textoPtBr = trim((string) ($card['texto_ptbr'] ?? ''));
+            if ($textoEnGb === '' || $textoPtBr === '') {
+                respond(422, false, 'Card sem texto em um dos idiomas para gerar áudio.');
             }
 
-            try {
-                $audioBase64 = synthesizeAudioWithGoogleCloud($texto, $idioma);
-            } catch (Throwable $e) {
-                respond(502, false, 'Não foi possível gerar o áudio do card.', [
-                    'detail' => $e->getMessage(),
-                ]);
-            }
+            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr);
 
             $updateCard = $pdo->prepare(
                 'UPDATE cards
-                 SET audio = :audio
+                 SET audio_engb = :audio_engb, audio_ptbr = :audio_ptbr
                  WHERE id = :id_card'
             );
             $updateCard->execute([
-                'audio' => $audioBase64,
+                'audio_engb' => $audios['audio_engb'],
+                'audio_ptbr' => $audios['audio_ptbr'],
                 'id_card' => $idCard,
             ]);
 
@@ -620,23 +610,24 @@ try {
                 'card' => [
                     'id' => $idCard,
                     'id_diretorio' => (int) $card['id_diretorio'],
-                    'idioma' => $idioma,
-                    'audio' => $audioBase64,
+                    'audio' => $audios['audio_engb'],
+                    'audio_engb' => $audios['audio_engb'],
+                    'audio_ptbr' => $audios['audio_ptbr'],
                 ],
             ]);
         }
 
         if ($action === 'editar_card') {
             $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
-            $texto = trim((string) ($payload['texto'] ?? ''));
-            $idioma = parseIdioma($payload['idioma'] ?? 'pt-BR');
+            $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
+            $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
-            if ($texto === '') {
-                respond(422, false, 'Texto do card é obrigatório.');
+            if ($textoEnGb === '' || $textoPtBr === '') {
+                respond(422, false, 'Textos dos dois idiomas são obrigatórios.');
             }
 
-            if (mb_strlen($texto) > 1500) {
-                respond(422, false, 'Texto do card deve ter no máximo 1500 caracteres.');
+            if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
+                respond(422, false, 'Cada texto do card deve ter no máximo 1500 caracteres.');
             }
 
             $selectCard = $pdo->prepare(
@@ -658,12 +649,12 @@ try {
 
             $updateCard = $pdo->prepare(
                 'UPDATE cards
-                 SET texto = :texto, idioma = :idioma, audio = NULL
+                 SET texto_engb = :texto_engb, texto_ptbr = :texto_ptbr, audio_engb = NULL, audio_ptbr = NULL
                  WHERE id = :id_card'
             );
             $updateCard->execute([
-                'texto' => $texto,
-                'idioma' => $idioma,
+                'texto_engb' => $textoEnGb,
+                'texto_ptbr' => $textoPtBr,
                 'id_card' => $idCard,
             ]);
 
@@ -671,8 +662,9 @@ try {
                 'card' => [
                     'id' => $idCard,
                     'id_diretorio' => (int) $card['id_diretorio'],
-                    'texto' => $texto,
-                    'idioma' => $idioma,
+                    'texto' => $textoEnGb,
+                    'texto_engb' => $textoEnGb,
+                    'texto_ptbr' => $textoPtBr,
                 ],
             ]);
         }
@@ -680,15 +672,15 @@ try {
         if ($action === 'criar_par_por_texto') {
             $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
             $idCardUm = parsePositiveInt($payload['id_card_um'] ?? null, 'ID do card base');
-            $texto = trim((string) ($payload['texto'] ?? ''));
-            $idioma = parseIdioma($payload['idioma'] ?? 'pt-BR');
+            $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
+            $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
-            if ($texto === '') {
-                respond(422, false, 'Texto do card é obrigatório.');
+            if ($textoEnGb === '' || $textoPtBr === '') {
+                respond(422, false, 'Textos dos dois idiomas são obrigatórios.');
             }
 
-            if (mb_strlen($texto) > 1500) {
-                respond(422, false, 'Texto do card deve ter no máximo 1500 caracteres.');
+            if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
+                respond(422, false, 'Cada texto do card deve ter no máximo 1500 caracteres.');
             }
 
             $checkDirectory = $pdo->prepare('SELECT id FROM diretorios WHERE id = :id AND id_usuario = :id_usuario LIMIT 1');
@@ -716,19 +708,20 @@ try {
                 respond(404, false, 'Card base não encontrado no diretório informado.');
             }
 
-            $audioBase64 = synthesizeCardAudioOrRespond($texto, $idioma);
+            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr);
 
             $pdo->beginTransaction();
 
             $insertCard = $pdo->prepare(
-                'INSERT INTO cards (id_diretorio, texto, idioma, audio)
-                 VALUES (:id_diretorio, :texto, :idioma, :audio)'
+                'INSERT INTO cards (id_diretorio, texto_engb, texto_ptbr, audio_engb, audio_ptbr)
+                 VALUES (:id_diretorio, :texto_engb, :texto_ptbr, :audio_engb, :audio_ptbr)'
             );
             $insertCard->execute([
                 'id_diretorio' => $idDiretorio,
-                'texto' => $texto,
-                'idioma' => $idioma,
-                'audio' => $audioBase64,
+                'texto_engb' => $textoEnGb,
+                'texto_ptbr' => $textoPtBr,
+                'audio_engb' => $audios['audio_engb'],
+                'audio_ptbr' => $audios['audio_ptbr'],
             ]);
 
             $idCardDois = (int) $pdo->lastInsertId();
@@ -756,24 +749,27 @@ try {
                 'card' => [
                     'id' => $idCardDois,
                     'id_diretorio' => $idDiretorio,
-                    'texto' => $texto,
-                    'idioma' => $idioma,
-                    'audio' => $audioBase64,
+                    'texto' => $textoEnGb,
+                    'texto_engb' => $textoEnGb,
+                    'texto_ptbr' => $textoPtBr,
+                    'audio' => $audios['audio_engb'],
+                    'audio_engb' => $audios['audio_engb'],
+                    'audio_ptbr' => $audios['audio_ptbr'],
                 ],
             ]);
         }
 
         if ($action === 'criar_card') {
             $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
-            $texto = trim((string) ($payload['texto'] ?? ''));
-            $idioma = parseIdioma($payload['idioma'] ?? 'pt-BR');
+            $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
+            $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
-            if ($texto === '') {
-                respond(422, false, 'Texto do card é obrigatório.');
+            if ($textoEnGb === '' || $textoPtBr === '') {
+                respond(422, false, 'Textos dos dois idiomas são obrigatórios.');
             }
 
-            if (mb_strlen($texto) > 1500) {
-                respond(422, false, 'Texto do card deve ter no máximo 1500 caracteres.');
+            if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
+                respond(422, false, 'Cada texto do card deve ter no máximo 1500 caracteres.');
             }
 
             $checkDirectory = $pdo->prepare('SELECT id FROM diretorios WHERE id = :id AND id_usuario = :id_usuario LIMIT 1');
@@ -786,26 +782,30 @@ try {
                 respond(404, false, 'Diretório não encontrado.');
             }
 
-            $audioBase64 = synthesizeCardAudioOrRespond($texto, $idioma);
+            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr);
 
             $insertCard = $pdo->prepare(
-                'INSERT INTO cards (id_diretorio, texto, idioma, audio)
-                 VALUES (:id_diretorio, :texto, :idioma, :audio)'
+                'INSERT INTO cards (id_diretorio, texto_engb, texto_ptbr, audio_engb, audio_ptbr)
+                 VALUES (:id_diretorio, :texto_engb, :texto_ptbr, :audio_engb, :audio_ptbr)'
             );
             $insertCard->execute([
                 'id_diretorio' => $idDiretorio,
-                'texto' => $texto,
-                'idioma' => $idioma,
-                'audio' => $audioBase64,
+                'texto_engb' => $textoEnGb,
+                'texto_ptbr' => $textoPtBr,
+                'audio_engb' => $audios['audio_engb'],
+                'audio_ptbr' => $audios['audio_ptbr'],
             ]);
 
             respond(201, true, 'Card criado com sucesso.', [
                 'card' => [
                     'id' => (int) $pdo->lastInsertId(),
                     'id_diretorio' => $idDiretorio,
-                    'texto' => $texto,
-                    'idioma' => $idioma,
-                    'audio' => $audioBase64,
+                    'texto' => $textoEnGb,
+                    'texto_engb' => $textoEnGb,
+                    'texto_ptbr' => $textoPtBr,
+                    'audio' => $audios['audio_engb'],
+                    'audio_engb' => $audios['audio_engb'],
+                    'audio_ptbr' => $audios['audio_ptbr'],
                     'ok' => 1,
                 ],
             ]);
