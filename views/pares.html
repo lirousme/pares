@@ -495,7 +495,7 @@
     }
 
     async function playCurrentCardAudioAndWait() {
-      const { audioEnGb } = await ensureCurrentCardAudio();
+      const { audioEnGb, audioPtBr } = await ensureCurrentCardAudio();
       if (!audioEnGb || !autoplayAtivo) {
         return;
       }
@@ -505,12 +505,22 @@
         audioCardAtual.currentTime = 0;
       }
 
-      audioCardAtual = new Audio(`data:audio/mp3;base64,${audioEnGb}`);
-      await new Promise((resolve, reject) => {
-        audioCardAtual.onended = resolve;
-        audioCardAtual.onerror = () => reject(new Error('Erro ao reproduzir áudio do card.'));
-        audioCardAtual.play().catch(reject);
-      });
+      const audiosParaTocar = currentCardPermitePtBr() && audioPtBr
+        ? [audioPtBr, audioEnGb]
+        : [audioEnGb];
+
+      for (const audioBase64 of audiosParaTocar) {
+        if (!autoplayAtivo) {
+          return;
+        }
+
+        await new Promise((resolve, reject) => {
+          audioCardAtual = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+          audioCardAtual.onended = resolve;
+          audioCardAtual.onerror = () => reject(new Error('Erro ao reproduzir áudio do card.'));
+          audioCardAtual.play().catch(reject);
+        });
+      }
     }
 
     function abrirModalEdicao() {
