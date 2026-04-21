@@ -39,6 +39,7 @@
         </button>
       </div>
       <p id="textoCardCriarPares" class="text-xl font-semibold text-white">Carregando...</p>
+      <p id="textoCardPtBrCriarPares" class="mt-2 text-lg font-semibold text-emerald-300"></p>
       <p id="metaCardCriarPares" class="mt-2 text-xs text-slate-400"></p>
     </div>
   </div>
@@ -165,6 +166,7 @@
     const btnTraduzirNovoCard = document.getElementById('btnTraduzirNovoCard');
     const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
     const textoCard = document.getElementById('textoCardCriarPares');
+    const textoCardPtBr = document.getElementById('textoCardPtBrCriarPares');
     const metaCard = document.getElementById('metaCardCriarPares');
     const btnGerarAudioCardEnGb = document.getElementById('btnGerarAudioCardEnGb');
     const btnToggleOkCriarPares = document.getElementById('btnToggleOkCriarPares');
@@ -202,12 +204,15 @@
     function renderTextoCard(card = null) {
       if (!card) {
         textoCard.textContent = 'Card sem texto.';
+        textoCardPtBr.textContent = '';
         return;
       }
 
       const textoEnGb = (card.texto_engb || card.texto || '').trim();
+      const textoPtBr = (card.texto_ptbr || '').trim();
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
       textoCard.textContent = textoEnGb || 'Card sem texto.';
+      textoCardPtBr.textContent = textoPtBr;
       updateAudioButtonsState();
     }
 
