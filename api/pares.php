@@ -400,17 +400,29 @@ try {
                 $idCardExcluir = parsePositiveInt($_GET['id_card_excluir'], 'ID do card para excluir');
             }
 
-            $query = 'SELECT id, texto_engb AS texto, texto_ptbr, ok, audio_engb AS audio, audio_ptbr
-                 FROM cards
-                 WHERE id_diretorio = :id_diretorio AND ok = 1';
+            $query = 'SELECT
+                    c.id,
+                    c.texto_engb AS texto,
+                    c.texto_engb,
+                    c.texto_ptbr,
+                    c.ok,
+                    c.audio_engb AS audio,
+                    c.audio_engb,
+                    c.audio_ptbr,
+                    COALESCE(MAX(r.quantidade), 0) AS revisao_quantidade_max
+                FROM cards c
+                LEFT JOIN pares p ON (p.id_card_um = c.id OR p.id_card_dois = c.id)
+                LEFT JOIN revisoes r ON r.id_par = p.id AND r.id_usuario = :id_usuario
+                WHERE c.id_diretorio = :id_diretorio AND c.ok = 1';
             $params = ['id_diretorio' => $idDiretorio];
+            $params['id_usuario'] = $userId;
 
             if ($idCardExcluir !== null) {
-                $query .= ' AND id <> :id_card_excluir';
+                $query .= ' AND c.id <> :id_card_excluir';
                 $params['id_card_excluir'] = $idCardExcluir;
             }
 
-            $query .= ' ORDER BY id ASC LIMIT 1';
+            $query .= ' GROUP BY c.id ORDER BY c.id ASC LIMIT 1';
 
             $stmt = $pdo->prepare($query);
             $stmt->execute($params);
