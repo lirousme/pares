@@ -37,16 +37,6 @@
   <form id="formRespostaPar" class="mt-6">
     <div class="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 shadow-lg">
       <div class="mb-2 flex flex-wrap items-center justify-end gap-3">
-        <label for="idiomaRespostaPar" class="text-sm text-slate-200"></label>
-        <select
-          id="idiomaRespostaPar"
-          name="idioma"
-          class="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 outline-none transition focus:border-brand-500"
-        >
-          <option value="pt-BR" selected>pt-BR</option>
-          <option value="en-GB">en-GB</option>
-          <option value="en-US">en-US</option>
-        </select>
         <button
           id="btnTraduzirRespostaPar"
           type="button"
@@ -63,13 +53,22 @@
         </button>
       </div>
       <textarea
-        id="textoRespostaPar"
-        name="texto"
+        id="textoRespostaParEnGb"
+        name="texto_engb"
         maxlength="1500"
         required
         rows="1"
-        class="max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
-        placeholder="Digite a mensagem para criar o par..."
+        class="mb-2 max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-slate-700 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+        placeholder="Digite o texto em inglês (en-GB)..."
+      ></textarea>
+      <textarea
+        id="textoRespostaParPtBr"
+        name="texto_ptbr"
+        maxlength="1500"
+        required
+        rows="1"
+        class="max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-emerald-500/60 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-emerald-400"
+        placeholder="Digite o texto em português (pt-BR)..."
       ></textarea>
     </div>
   </form>
@@ -89,15 +88,28 @@
 
       <form id="formNovoCard" class="space-y-4">
         <div>
-          <label for="textoNovoCard" class="mb-1 block text-sm text-slate-200">Texto</label>
+          <label for="textoNovoCardEnGb" class="mb-1 block text-sm text-slate-200">Texto (en-GB)</label>
           <textarea
-            id="textoNovoCard"
-            name="texto"
+            id="textoNovoCardEnGb"
+            name="texto_engb"
             required
             rows="4"
             maxlength="1500"
             class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
-            placeholder="Digite o conteúdo do card"
+            placeholder="Digite o conteúdo em inglês britânico"
+          ></textarea>
+        </div>
+
+        <div>
+          <label for="textoNovoCardPtBr" class="mb-1 block text-sm text-slate-200">Texto (pt-BR)</label>
+          <textarea
+            id="textoNovoCardPtBr"
+            name="texto_ptbr"
+            required
+            rows="4"
+            maxlength="1500"
+            class="w-full rounded-lg border border-emerald-500/60 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-400"
+            placeholder="Digite o conteúdo em português brasileiro"
           ></textarea>
           <div class="mt-2 flex justify-end">
             <button
@@ -105,22 +117,9 @@
               type="button"
               class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Traduzir
+              Traduzir EN → PT
             </button>
           </div>
-        </div>
-
-        <div>
-          <label for="idiomaNovoCard" class="mb-1 block text-sm text-slate-200"></label>
-          <select
-            id="idiomaNovoCard"
-            name="idioma"
-            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
-          >
-            <option value="pt-BR" selected>pt-BR</option>
-            <option value="en-GB">en-GB</option>
-            <option value="en-US">en-US</option>
-          </select>
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
@@ -152,8 +151,8 @@
     const btnFecharModalNovoCard = document.getElementById('btnFecharModalNovoCard');
     const btnCancelarNovoCard = document.getElementById('btnCancelarNovoCard');
     const formNovoCard = document.getElementById('formNovoCard');
-    const textoNovoCard = document.getElementById('textoNovoCard');
-    const idiomaNovoCard = document.getElementById('idiomaNovoCard');
+    const textoNovoCardEnGb = document.getElementById('textoNovoCardEnGb');
+    const textoNovoCardPtBr = document.getElementById('textoNovoCardPtBr');
     const btnTraduzirNovoCard = document.getElementById('btnTraduzirNovoCard');
     const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
     const textoCard = document.getElementById('textoCardCriarPares');
@@ -161,8 +160,8 @@
     const btnToggleOkCriarPares = document.getElementById('btnToggleOkCriarPares');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
-    const textoRespostaPar = document.getElementById('textoRespostaPar');
-    const idiomaRespostaPar = document.getElementById('idiomaRespostaPar');
+    const textoRespostaParEnGb = document.getElementById('textoRespostaParEnGb');
+    const textoRespostaParPtBr = document.getElementById('textoRespostaParPtBr');
     const btnTraduzirRespostaPar = document.getElementById('btnTraduzirRespostaPar');
     const btnEnviarRespostaPar = document.getElementById('btnEnviarRespostaPar');
     const params = new URLSearchParams(window.location.search);
@@ -185,14 +184,13 @@
     function openModalNovoCard() {
       modalNovoCard.classList.remove('hidden');
       modalNovoCard.classList.add('flex');
-      textoNovoCard.focus();
+      textoNovoCardEnGb.focus();
     }
 
     function closeModalNovoCard() {
       modalNovoCard.classList.add('hidden');
       modalNovoCard.classList.remove('flex');
       formNovoCard.reset();
-      idiomaNovoCard.value = 'pt-BR';
     }
 
     btnVoltar.addEventListener('click', () => {
@@ -225,11 +223,11 @@
         return;
       }
 
-      const texto = textoNovoCard.value.trim();
-      const idioma = idiomaNovoCard.value;
+      const textoEnGb = textoNovoCardEnGb.value.trim();
+      const textoPtBr = textoNovoCardPtBr.value.trim();
 
-      if (!texto) {
-        showFeedback('Texto do card é obrigatório.');
+      if (!textoEnGb || !textoPtBr) {
+        showFeedback('Preencha os textos em en-GB e pt-BR.');
         return;
       }
 
@@ -245,8 +243,8 @@
           body: JSON.stringify({
             action: 'criar_card',
             id_diretorio: idDiretorio,
-            texto,
-            idioma,
+            texto_engb: textoEnGb,
+            texto_ptbr: textoPtBr,
           }),
         });
         const result = await response.json();
@@ -278,7 +276,9 @@
     });
 
     btnTraduzirNovoCard.addEventListener('click', async () => {
-      const texto = textoNovoCard.value.trim();
+      const textoEnGb = textoNovoCardEnGb.value.trim();
+      const textoPtBr = textoNovoCardPtBr.value.trim();
+      const texto = textoEnGb || textoPtBr;
       if (!texto) {
         showFeedback('Digite um texto para traduzir.');
         return;
@@ -310,9 +310,10 @@
           throw new Error(result.message || 'Não foi possível traduzir o texto.');
         }
 
-        textoNovoCard.value = result.texto_traduzido || texto;
-        if (typeof result.idioma_destino === 'string' && result.idioma_destino) {
-          idiomaNovoCard.value = result.idioma_destino;
+        if ((result.idioma_destino || '') === 'pt-BR') {
+          textoNovoCardPtBr.value = result.texto_traduzido || texto;
+        } else {
+          textoNovoCardEnGb.value = result.texto_traduzido || texto;
         }
         hideFeedback();
       } catch (error) {
@@ -323,16 +324,18 @@
       }
     });
 
-    function resizeTextoRespostaPar() {
-      textoRespostaPar.style.height = 'auto';
-      textoRespostaPar.style.height = `${Math.min(textoRespostaPar.scrollHeight, 192)}px`;
+    function resizeTextarea(textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 192)}px`;
     }
 
-    textoRespostaPar.addEventListener('input', resizeTextoRespostaPar);
-    resizeTextoRespostaPar();
+    textoRespostaParEnGb.addEventListener('input', () => resizeTextarea(textoRespostaParEnGb));
+    textoRespostaParPtBr.addEventListener('input', () => resizeTextarea(textoRespostaParPtBr));
+    resizeTextarea(textoRespostaParEnGb);
+    resizeTextarea(textoRespostaParPtBr);
 
     btnTraduzirRespostaPar.addEventListener('click', async () => {
-      const texto = textoRespostaPar.value.trim();
+      const texto = textoRespostaParEnGb.value.trim() || textoRespostaParPtBr.value.trim();
       if (!texto) {
         showFeedback('Digite um texto no formulário para traduzir.');
         return;
@@ -364,11 +367,13 @@
           throw new Error(result.message || 'Não foi possível traduzir o texto do formulário.');
         }
 
-        textoRespostaPar.value = result.texto_traduzido || texto;
-        if (typeof result.idioma_destino === 'string' && result.idioma_destino) {
-          idiomaRespostaPar.value = result.idioma_destino;
+        if ((result.idioma_destino || '') === 'pt-BR') {
+          textoRespostaParPtBr.value = result.texto_traduzido || texto;
+        } else {
+          textoRespostaParEnGb.value = result.texto_traduzido || texto;
         }
-        resizeTextoRespostaPar();
+        resizeTextarea(textoRespostaParEnGb);
+        resizeTextarea(textoRespostaParPtBr);
         hideFeedback();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao traduzir texto do formulário.');
@@ -391,10 +396,10 @@
         return;
       }
 
-      const texto = textoRespostaPar.value.trim();
-      const idioma = idiomaRespostaPar.value;
-      if (!texto) {
-        showFeedback('Digite um texto para criar o par.');
+      const textoEnGb = textoRespostaParEnGb.value.trim();
+      const textoPtBr = textoRespostaParPtBr.value.trim();
+      if (!textoEnGb || !textoPtBr) {
+        showFeedback('Preencha os dois textos para criar o par.');
         return;
       }
 
@@ -411,8 +416,8 @@
             action: 'criar_par_por_texto',
             id_diretorio: idDiretorio,
             id_card_um: idCardAtual,
-            texto,
-            idioma,
+            texto_engb: textoEnGb,
+            texto_ptbr: textoPtBr,
           }),
         });
         const result = await response.json();
@@ -430,8 +435,10 @@
         }
 
         hideFeedback();
-        textoRespostaPar.value = '';
-        resizeTextoRespostaPar();
+        textoRespostaParEnGb.value = '';
+        textoRespostaParPtBr.value = '';
+        resizeTextarea(textoRespostaParEnGb);
+        resizeTextarea(textoRespostaParPtBr);
         showFeedback(`Par criado com sucesso! Card ${result.pair.id_card_dois} vinculado ao card ${result.pair.id_card_um}.`);
         feedbackCriarPares.classList.remove('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
         feedbackCriarPares.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');

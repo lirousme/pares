@@ -97,13 +97,22 @@
         </button>
       </div>
       <form id="formEditarCard" class="space-y-3">
-        <label for="textoEditarCard" class="block text-sm text-slate-200">Texto do card</label>
+        <label for="textoEditarCard" class="block text-sm text-slate-200">Texto (en-GB)</label>
         <textarea
           id="textoEditarCard"
-          name="texto"
-          rows="6"
+          name="texto_engb"
+          rows="4"
           maxlength="1500"
           class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
+          required
+        ></textarea>
+        <label for="textoEditarCardPtBr" class="block text-sm text-slate-200">Texto (pt-BR)</label>
+        <textarea
+          id="textoEditarCardPtBr"
+          name="texto_ptbr"
+          rows="4"
+          maxlength="1500"
+          class="w-full rounded-lg border border-emerald-500/60 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20"
           required
         ></textarea>
         <div class="flex justify-end">
@@ -114,18 +123,6 @@
           >
             Traduzir
           </button>
-        </div>
-        <div>
-          <label for="idiomaEditarCard" class="mb-1 block text-sm text-slate-200"></label>
-          <select
-            id="idiomaEditarCard"
-            name="idioma"
-            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
-          >
-            <option value="pt-BR" selected>pt-BR</option>
-            <option value="en-GB">en-GB</option>
-            <option value="en-US">en-US</option>
-          </select>
         </div>
         <div class="flex items-center justify-end gap-2 pt-1">
           <button
@@ -166,7 +163,7 @@
     const btnCancelarEdicaoCard = document.getElementById('btnCancelarEdicaoCard');
     const formEditarCard = document.getElementById('formEditarCard');
     const textoEditarCard = document.getElementById('textoEditarCard');
-    const idiomaEditarCard = document.getElementById('idiomaEditarCard');
+    const textoEditarCardPtBr = document.getElementById('textoEditarCardPtBr');
     const btnTraduzirEditarCard = document.getElementById('btnTraduzirEditarCard');
     const btnSalvarEdicaoCard = document.getElementById('btnSalvarEdicaoCard');
 
@@ -310,15 +307,15 @@
         : (par.card_dois_texto || '');
     }
 
-    function currentCardIdioma() {
+    function currentCardTextoPtBr() {
       const par = currentPair();
       if (!par) {
-        return 'pt-BR';
+        return '';
       }
 
       return indiceCardAtual === 0
-        ? (par.card_um_idioma || 'pt-BR')
-        : (par.card_dois_idioma || 'pt-BR');
+        ? (par.card_um_texto_ptbr || '')
+        : (par.card_dois_texto_ptbr || '');
     }
 
     function setCurrentCardTexto(texto) {
@@ -334,16 +331,16 @@
       }
     }
 
-    function setCurrentCardIdioma(idioma) {
+    function setCurrentCardTextoPtBr(texto) {
       const par = currentPair();
       if (!par) {
         return;
       }
 
       if (indiceCardAtual === 0) {
-        par.card_um_idioma = idioma;
+        par.card_um_texto_ptbr = texto;
       } else {
-        par.card_dois_idioma = idioma;
+        par.card_dois_texto_ptbr = texto;
       }
     }
 
@@ -456,7 +453,7 @@
       }
 
       textoEditarCard.value = currentCardTexto();
-      idiomaEditarCard.value = currentCardIdioma();
+      textoEditarCardPtBr.value = currentCardTextoPtBr();
       modalEditarCard.classList.remove('hidden');
       modalEditarCard.classList.add('flex');
       textoEditarCard.focus();
@@ -738,14 +735,14 @@
       hideFeedback();
 
       const idCard = currentCardId();
-      const texto = textoEditarCard.value.trim();
-      const idioma = idiomaEditarCard.value;
+      const textoEnGb = textoEditarCard.value.trim();
+      const textoPtBr = textoEditarCardPtBr.value.trim();
       if (!Number.isInteger(idCard) || idCard <= 0) {
         return;
       }
 
-      if (!texto) {
-        showFeedback('Digite o texto do card para salvar.');
+      if (!textoEnGb || !textoPtBr) {
+        showFeedback('Preencha os textos em en-GB e pt-BR para salvar.');
         return;
       }
 
@@ -761,8 +758,8 @@
           body: JSON.stringify({
             action: 'editar_card',
             id_card: idCard,
-            texto,
-            idioma,
+            texto_engb: textoEnGb,
+            texto_ptbr: textoPtBr,
           }),
         });
         const result = await response.json();
@@ -776,8 +773,8 @@
           throw new Error(result.message || 'Não foi possível editar o card.');
         }
 
-        setCurrentCardTexto(result.card?.texto || texto);
-        setCurrentCardIdioma(result.card?.idioma || idioma);
+        setCurrentCardTexto(result.card?.texto_engb || textoEnGb);
+        setCurrentCardTextoPtBr(result.card?.texto_ptbr || textoPtBr);
         renderCard();
         fecharModalEdicao();
         showFeedback('Card atualizado com sucesso.', 'success');
@@ -790,7 +787,7 @@
     });
 
     btnTraduzirEditarCard.addEventListener('click', async () => {
-      const texto = textoEditarCard.value.trim();
+      const texto = textoEditarCard.value.trim() || textoEditarCardPtBr.value.trim();
       if (!texto) {
         showFeedback('Digite um texto para traduzir.');
         return;
@@ -821,9 +818,10 @@
           throw new Error(result.message || 'Não foi possível traduzir o texto.');
         }
 
-        textoEditarCard.value = result.texto_traduzido || texto;
-        if (typeof result.idioma_destino === 'string' && result.idioma_destino) {
-          idiomaEditarCard.value = result.idioma_destino;
+        if ((result.idioma_destino || '') === 'pt-BR') {
+          textoEditarCardPtBr.value = result.texto_traduzido || texto;
+        } else {
+          textoEditarCard.value = result.texto_traduzido || texto;
         }
         hideFeedback();
       } catch (error) {
