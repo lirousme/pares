@@ -22,13 +22,29 @@
 
   <div class="flex flex-1 items-center justify-center">
     <div class="relative w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
-      <button
-        id="btnToggleOkCriarPares"
-        type="button"
-        class="absolute right-3 top-3 rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
-      >
-        ok: --
-      </button>
+      <div class="absolute right-3 top-3 flex items-center gap-2">
+        <button
+          id="btnGerarAudioCardEnGb"
+          type="button"
+          class="rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+        >
+          Áudio en-GB
+        </button>
+        <button
+          id="btnGerarAudioCardPtBr"
+          type="button"
+          class="rounded-md border border-emerald-500/70 bg-emerald-500/20 px-2 py-1 text-xs font-semibold text-emerald-200 transition hover:border-emerald-400 hover:text-emerald-100"
+        >
+          Áudio pt-BR
+        </button>
+        <button
+          id="btnToggleOkCriarPares"
+          type="button"
+          class="rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+        >
+          ok: --
+        </button>
+      </div>
       <p id="textoCardCriarPares" class="text-xl font-semibold text-white">Carregando...</p>
       <p id="textoCardCriarParesPtBr" class="mt-3 text-lg font-semibold text-emerald-300"></p>
       <p id="metaCardCriarPares" class="mt-2 text-xs text-slate-400"></p>
@@ -159,6 +175,8 @@
     const textoCard = document.getElementById('textoCardCriarPares');
     const textoCardPtBr = document.getElementById('textoCardCriarParesPtBr');
     const metaCard = document.getElementById('metaCardCriarPares');
+    const btnGerarAudioCardEnGb = document.getElementById('btnGerarAudioCardEnGb');
+    const btnGerarAudioCardPtBr = document.getElementById('btnGerarAudioCardPtBr');
     const btnToggleOkCriarPares = document.getElementById('btnToggleOkCriarPares');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
@@ -168,9 +186,37 @@
     const btnEnviarRespostaPar = document.getElementById('btnEnviarRespostaPar');
     const params = new URLSearchParams(window.location.search);
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
+    const LIMITE_REVISOES_OCULTAR_PTBR = 10;
     let idCardAtual = null;
     let okCardAtual = null;
-    let audioCardAtualBase64 = '';
+    let quantidadeRevisoesCardAtual = 0;
+    let audioCardAtualEnGbBase64 = '';
+    let audioCardAtualPtBrBase64 = '';
+    let audioCardAtual = null;
+
+    function cardPermitePtBr() {
+      return quantidadeRevisoesCardAtual <= LIMITE_REVISOES_OCULTAR_PTBR;
+    }
+
+    function resetCurrentAudioPlayer() {
+      if (!audioCardAtual) {
+        return;
+      }
+      audioCardAtual.pause();
+      audioCardAtual.currentTime = 0;
+      audioCardAtual = null;
+    }
+
+    function updateAudioButtonsState() {
+      const hasCard = Number.isInteger(idCardAtual) && idCardAtual > 0;
+      btnGerarAudioCardEnGb.disabled = !hasCard;
+      btnGerarAudioCardEnGb.classList.toggle('opacity-50', !hasCard);
+      btnGerarAudioCardEnGb.classList.toggle('cursor-not-allowed', !hasCard);
+
+      const permitirPtBr = hasCard && cardPermitePtBr();
+      btnGerarAudioCardPtBr.disabled = !permitirPtBr;
+      btnGerarAudioCardPtBr.classList.toggle('hidden', !permitirPtBr);
+    }
 
     function renderTextoCard(card = null) {
       if (!card) {
@@ -181,8 +227,10 @@
 
       const textoEnGb = (card.texto_engb || card.texto || '').trim();
       const textoPtBr = (card.texto_ptbr || '').trim();
+      quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
       textoCard.textContent = textoEnGb || 'Card sem texto.';
-      textoCardPtBr.textContent = textoPtBr;
+      textoCardPtBr.textContent = cardPermitePtBr() ? textoPtBr : '';
+      updateAudioButtonsState();
     }
 
     function showFeedback(message) {
@@ -279,9 +327,13 @@
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
-        audioCardAtualBase64 = '';
+        quantidadeRevisoesCardAtual = 0;
+        audioCardAtualEnGbBase64 = '';
+        audioCardAtualPtBrBase64 = '';
+        resetCurrentAudioPlayer();
         btnToggleOkCriarPares.classList.remove('hidden');
         btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
+        updateAudioButtonsState();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao criar card.');
       } finally {
@@ -500,32 +552,136 @@
         if (!result.card) {
           idCardAtual = null;
           okCardAtual = null;
-          audioCardAtualBase64 = '';
+          quantidadeRevisoesCardAtual = 0;
+          audioCardAtualEnGbBase64 = '';
+          audioCardAtualPtBrBase64 = '';
+          resetCurrentAudioPlayer();
           textoCard.textContent = 'Nenhum card com ok = 1 foi encontrado.';
           textoCardPtBr.textContent = '';
           metaCard.textContent = `Diretório ${idDiretorio}`;
           btnToggleOkCriarPares.classList.add('hidden');
+          updateAudioButtonsState();
           return;
         }
 
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
-        audioCardAtualBase64 = (result.card.audio || '').trim();
+        quantidadeRevisoesCardAtual = Number.parseInt(result.card.revisao_quantidade_max || '0', 10) || 0;
+        audioCardAtualEnGbBase64 = (result.card.audio_engb || result.card.audio || '').trim();
+        audioCardAtualPtBrBase64 = (result.card.audio_ptbr || '').trim();
+        resetCurrentAudioPlayer();
         renderTextoCard(result.card);
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
         btnToggleOkCriarPares.classList.remove('hidden');
         btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
+        updateAudioButtonsState();
       } catch (error) {
         idCardAtual = null;
         okCardAtual = null;
-        audioCardAtualBase64 = '';
+        quantidadeRevisoesCardAtual = 0;
+        audioCardAtualEnGbBase64 = '';
+        audioCardAtualPtBrBase64 = '';
+        resetCurrentAudioPlayer();
         showFeedback(error.message || 'Erro inesperado ao carregar card.');
         textoCard.textContent = 'Erro ao carregar o card.';
         textoCardPtBr.textContent = '';
         metaCard.textContent = '';
         btnToggleOkCriarPares.classList.add('hidden');
+        updateAudioButtonsState();
       }
     }
+
+    async function ensureCardAudios() {
+      if (audioCardAtualEnGbBase64 && (!cardPermitePtBr() || audioCardAtualPtBrBase64)) {
+        return;
+      }
+
+      const response = await fetch('api/pares.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'gerar_audio_card',
+          id_card: idCardAtual,
+        }),
+      });
+      const result = await response.json();
+
+      if (response.status === 401) {
+        window.location.href = 'index.html?view=login';
+        return;
+      }
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Não foi possível gerar áudio para o card.');
+      }
+
+      audioCardAtualEnGbBase64 = (result.card?.audio_engb || result.card?.audio || '').trim();
+      audioCardAtualPtBrBase64 = (result.card?.audio_ptbr || '').trim();
+    }
+
+    async function playAudioBase64(audioBase64) {
+      if (!audioBase64) {
+        throw new Error('Áudio indisponível para reprodução.');
+      }
+
+      resetCurrentAudioPlayer();
+
+      await new Promise((resolve, reject) => {
+        audioCardAtual = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+        audioCardAtual.onended = () => resolve();
+        audioCardAtual.onerror = () => reject(new Error('Erro ao reproduzir áudio.'));
+        audioCardAtual.play().catch(() => reject(new Error('Não foi possível iniciar a reprodução de áudio.')));
+      });
+    }
+
+    btnGerarAudioCardEnGb.addEventListener('click', async () => {
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        showFeedback('Nenhum card ativo disponível para gerar áudio.');
+        return;
+      }
+
+      hideFeedback();
+      btnGerarAudioCardEnGb.disabled = true;
+      btnGerarAudioCardEnGb.classList.add('opacity-50', 'cursor-not-allowed');
+
+      try {
+        await ensureCardAudios();
+        await playAudioBase64(audioCardAtualEnGbBase64);
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio en-GB.');
+      } finally {
+        btnGerarAudioCardEnGb.disabled = false;
+        btnGerarAudioCardEnGb.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+
+    btnGerarAudioCardPtBr.addEventListener('click', async () => {
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        showFeedback('Nenhum card ativo disponível para gerar áudio.');
+        return;
+      }
+
+      if (!cardPermitePtBr()) {
+        return;
+      }
+
+      hideFeedback();
+      btnGerarAudioCardPtBr.disabled = true;
+      btnGerarAudioCardPtBr.classList.add('opacity-50', 'cursor-not-allowed');
+
+      try {
+        await ensureCardAudios();
+        await playAudioBase64(audioCardAtualPtBrBase64);
+        await playAudioBase64(audioCardAtualEnGbBase64);
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio pt-BR.');
+      } finally {
+        btnGerarAudioCardPtBr.disabled = false;
+        btnGerarAudioCardPtBr.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
 
     btnToggleOkCriarPares.addEventListener('click', async () => {
       hideFeedback();
@@ -573,6 +729,7 @@
       }
     });
 
+    updateAudioButtonsState();
     loadCardMaisAntigo();
   })();
 </script>
