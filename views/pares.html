@@ -494,9 +494,9 @@
       };
     }
 
-    async function playCurrentCardAudioAndWait() {
+    async function playCurrentCardPreferredAudioAndWait({ respectAutoplayState = false } = {}) {
       const { audioEnGb, audioPtBr } = await ensureCurrentCardAudio();
-      if (!audioEnGb || !autoplayAtivo) {
+      if (!audioEnGb) {
         return;
       }
 
@@ -510,7 +510,7 @@
         : [audioEnGb];
 
       for (const audioBase64 of audiosParaTocar) {
-        if (!autoplayAtivo) {
+        if (respectAutoplayState && !autoplayAtivo) {
           return;
         }
 
@@ -604,7 +604,9 @@
       btnToggleOkPar.textContent = `ok: ${currentCardOk()}`;
       updateButtons();
       if (playAudio) {
-        playCurrentCardAudio();
+        playCurrentCardPreferredAudioAndWait().catch(() => {
+          // Ignora erros de autoplay (restrição de navegador, falta de gesto do usuário, etc.).
+        });
       }
     }
 
@@ -664,7 +666,7 @@
           }
         }
 
-        await playCurrentCardAudioAndWait();
+        await playCurrentCardPreferredAudioAndWait({ respectAutoplayState: true });
         if (!autoplayAtivo) {
           return;
         }
