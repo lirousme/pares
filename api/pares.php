@@ -927,6 +927,8 @@ try {
 
             $idCardDois = (int) $pdo->lastInsertId();
 
+            $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
+
             $cardBaseStmt = $pdo->prepare(
                 'SELECT id, expansions, proxima_expansion
                  FROM cards
