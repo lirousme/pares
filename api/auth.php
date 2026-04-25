@@ -72,7 +72,7 @@ try {
     }
 
     if ($action === 'login') {
-        $stmt = $pdo->prepare('SELECT id, nome_de_usuario, senha_hash FROM usuarios WHERE nome_de_usuario = :username LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, nome_de_usuario, senha_hash, ptbr FROM usuarios WHERE nome_de_usuario = :username LIMIT 1');
         $stmt->execute(['username' => $username]);
         $user = $stmt->fetch();
 
@@ -96,10 +96,12 @@ try {
 
         $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['nome_de_usuario'] = $user['nome_de_usuario'];
+        $_SESSION['ptbr'] = ((int) ($user['ptbr'] ?? 1)) === 2 ? 2 : 1;
 
         respond(200, true, 'Login efetuado com sucesso.', [
             'user_id' => (int) $user['id'],
             'nome_de_usuario' => $user['nome_de_usuario'],
+            'ptbr' => $_SESSION['ptbr'],
         ]);
     }
 

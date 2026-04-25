@@ -52,7 +52,7 @@
           type="button"
           class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Traduzir
+          Traduzir para en-GB
         </button>
         <button
           id="btnEnviarRespostaPar"
@@ -71,15 +71,17 @@
         class="mb-2 max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-slate-700 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
         placeholder="Digite o texto em inglês (en-GB)..."
       ></textarea>
-      <textarea
-        id="textoRespostaParPtBr"
-        name="texto_ptbr"
-        maxlength="1500"
-        required
-        rows="1"
-        class="max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-emerald-500/60 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-emerald-400"
-        placeholder="Digite o texto em português (pt-BR)..."
-      ></textarea>
+      <div id="containerRespostaParPtBr">
+        <textarea
+          id="textoRespostaParPtBr"
+          name="texto_ptbr"
+          maxlength="1500"
+          required
+          rows="1"
+          class="max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-emerald-500/60 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-emerald-400"
+          placeholder="Digite o texto em português (pt-BR)..."
+        ></textarea>
+      </div>
     </div>
   </form>
 
@@ -110,7 +112,7 @@
           ></textarea>
         </div>
 
-        <div>
+        <div id="containerNovoCardPtBr">
           <label for="textoNovoCardPtBr" class="mb-1 block text-sm text-slate-200">Texto (pt-BR)</label>
           <textarea
             id="textoNovoCardPtBr"
@@ -127,7 +129,7 @@
               type="button"
               class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Traduzir EN → PT
+              Traduzir para en-GB
             </button>
           </div>
         </div>
@@ -163,6 +165,7 @@
     const formNovoCard = document.getElementById('formNovoCard');
     const textoNovoCardEnGb = document.getElementById('textoNovoCardEnGb');
     const textoNovoCardPtBr = document.getElementById('textoNovoCardPtBr');
+    const containerNovoCardPtBr = document.getElementById('containerNovoCardPtBr');
     const btnTraduzirNovoCard = document.getElementById('btnTraduzirNovoCard');
     const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
     const textoCard = document.getElementById('textoCardCriarPares');
@@ -174,6 +177,7 @@
     const formRespostaPar = document.getElementById('formRespostaPar');
     const textoRespostaParEnGb = document.getElementById('textoRespostaParEnGb');
     const textoRespostaParPtBr = document.getElementById('textoRespostaParPtBr');
+    const containerRespostaParPtBr = document.getElementById('containerRespostaParPtBr');
     const btnTraduzirRespostaPar = document.getElementById('btnTraduzirRespostaPar');
     const btnEnviarRespostaPar = document.getElementById('btnEnviarRespostaPar');
     const params = new URLSearchParams(window.location.search);
@@ -183,6 +187,25 @@
     let quantidadeRevisoesCardAtual = 0;
     let audioCardAtualEnGbBase64 = '';
     let audioCardAtual = null;
+    let ptbrAtivo = true;
+
+    async function carregarPreferenciaPtBr() {
+      const response = await fetch('api/usuario.php', { cache: 'no-store' });
+      const result = await response.json();
+      if (response.status === 401) {
+        window.location.href = 'index.html?view=login';
+        return;
+      }
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Não foi possível carregar preferência pt-BR.');
+      }
+      ptbrAtivo = Boolean(result.ptbr_ativo);
+      containerNovoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+      containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
+      textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+      textoNovoCardPtBr.required = ptbrAtivo;
+      textoRespostaParPtBr.required = ptbrAtivo;
+    }
 
     function resetCurrentAudioPlayer() {
       if (!audioCardAtual) {
@@ -212,7 +235,7 @@
       const textoPtBr = (card.texto_ptbr || '').trim();
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
       textoCard.textContent = textoEnGb || 'Card sem texto.';
-      textoCardPtBr.textContent = textoPtBr;
+      textoCardPtBr.textContent = ptbrAtivo ? textoPtBr : '';
       updateAudioButtonsState();
     }
 
@@ -272,8 +295,8 @@
       const textoEnGb = textoNovoCardEnGb.value.trim();
       const textoPtBr = textoNovoCardPtBr.value.trim();
 
-      if (!textoEnGb || !textoPtBr) {
-        showFeedback('Preencha os textos em en-GB e pt-BR.');
+      if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
+        showFeedback('Preencha o texto en-GB e, com pt-BR ativo, também o texto pt-BR.');
         return;
       }
 
@@ -290,7 +313,7 @@
             action: 'criar_card',
             id_diretorio: idDiretorio,
             texto_engb: textoEnGb,
-            texto_ptbr: textoPtBr,
+            texto_ptbr: ptbrAtivo ? textoPtBr : '',
           }),
         });
         const result = await response.json();
@@ -325,11 +348,9 @@
     });
 
     btnTraduzirNovoCard.addEventListener('click', async () => {
-      const textoEnGb = textoNovoCardEnGb.value.trim();
-      const textoPtBr = textoNovoCardPtBr.value.trim();
-      const texto = textoEnGb || textoPtBr;
+      const texto = textoNovoCardEnGb.value.trim();
       if (!texto) {
-        showFeedback('Digite um texto para traduzir.');
+        showFeedback('Digite no campo en-GB (em português) para traduzir para en-GB.');
         return;
       }
 
@@ -343,7 +364,7 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action: 'traduzir_texto',
+            action: 'traduzir_texto_para_engb',
             texto,
           }),
         });
@@ -359,17 +380,13 @@
           throw new Error(result.message || 'Não foi possível traduzir o texto.');
         }
 
-        if ((result.idioma_destino || '') === 'pt-BR') {
-          textoNovoCardPtBr.value = result.texto_traduzido || texto;
-        } else {
-          textoNovoCardEnGb.value = result.texto_traduzido || texto;
-        }
+        textoNovoCardEnGb.value = result.texto_traduzido || texto;
         hideFeedback();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao traduzir texto.');
       } finally {
         btnTraduzirNovoCard.disabled = false;
-        btnTraduzirNovoCard.textContent = 'Traduzir';
+        btnTraduzirNovoCard.textContent = 'Traduzir para en-GB';
       }
     });
 
@@ -384,9 +401,9 @@
     resizeTextarea(textoRespostaParPtBr);
 
     btnTraduzirRespostaPar.addEventListener('click', async () => {
-      const texto = textoRespostaParEnGb.value.trim() || textoRespostaParPtBr.value.trim();
+      const texto = textoRespostaParEnGb.value.trim();
       if (!texto) {
-        showFeedback('Digite um texto no formulário para traduzir.');
+        showFeedback('Digite no campo en-GB (em português) para traduzir para en-GB.');
         return;
       }
 
@@ -400,7 +417,7 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action: 'traduzir_texto',
+            action: 'traduzir_texto_para_engb',
             texto,
           }),
         });
@@ -416,19 +433,14 @@
           throw new Error(result.message || 'Não foi possível traduzir o texto do formulário.');
         }
 
-        if ((result.idioma_destino || '') === 'pt-BR') {
-          textoRespostaParPtBr.value = result.texto_traduzido || texto;
-        } else {
-          textoRespostaParEnGb.value = result.texto_traduzido || texto;
-        }
+        textoRespostaParEnGb.value = result.texto_traduzido || texto;
         resizeTextarea(textoRespostaParEnGb);
-        resizeTextarea(textoRespostaParPtBr);
         hideFeedback();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao traduzir texto do formulário.');
       } finally {
         btnTraduzirRespostaPar.disabled = false;
-        btnTraduzirRespostaPar.textContent = 'Traduzir';
+        btnTraduzirRespostaPar.textContent = 'Traduzir para en-GB';
       }
     });
 
@@ -447,8 +459,8 @@
 
       const textoEnGb = textoRespostaParEnGb.value.trim();
       const textoPtBr = textoRespostaParPtBr.value.trim();
-      if (!textoEnGb || !textoPtBr) {
-        showFeedback('Preencha os dois textos para criar o par.');
+      if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
+        showFeedback('Preencha o texto en-GB e, com pt-BR ativo, também o texto pt-BR.');
         return;
       }
 
@@ -466,7 +478,7 @@
             id_diretorio: idDiretorio,
             id_card_um: idCardAtual,
             texto_engb: textoEnGb,
-            texto_ptbr: textoPtBr,
+            texto_ptbr: ptbrAtivo ? textoPtBr : '',
           }),
         });
         const result = await response.json();
@@ -487,7 +499,9 @@
         textoRespostaParEnGb.value = '';
         textoRespostaParPtBr.value = '';
         resizeTextarea(textoRespostaParEnGb);
-        resizeTextarea(textoRespostaParPtBr);
+        if (ptbrAtivo) {
+          resizeTextarea(textoRespostaParPtBr);
+        }
         showFeedback(`Par criado com sucesso! Card ${result.pair.id_card_dois} vinculado ao card ${result.pair.id_card_um}.`);
         feedbackCriarPares.classList.remove('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
         feedbackCriarPares.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
@@ -528,6 +542,15 @@
 
         if (!response.ok || !result.success) {
           throw new Error(result.message || 'Não foi possível carregar o card.');
+        }
+
+        if (typeof result.ptbr_ativo === 'boolean') {
+          ptbrAtivo = result.ptbr_ativo;
+          containerNovoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+          containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
+          textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+          textoNovoCardPtBr.required = ptbrAtivo;
+          textoRespostaParPtBr.required = ptbrAtivo;
         }
 
         if (!result.card) {
@@ -679,7 +702,16 @@
       }
     });
 
+    btnTraduzirNovoCard.textContent = 'Traduzir para en-GB';
+    btnTraduzirRespostaPar.textContent = 'Traduzir para en-GB';
     updateAudioButtonsState();
-    loadCardMaisAntigo();
+    carregarPreferenciaPtBr()
+      .then(() => {
+        loadCardMaisAntigo();
+      })
+      .catch((error) => {
+        showFeedback(error.message || 'Erro ao carregar preferência pt-BR.');
+        loadCardMaisAntigo();
+      });
   })();
 </script>
