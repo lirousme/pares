@@ -908,9 +908,12 @@ try {
 
             $pdo->beginTransaction();
 
+            $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
+            $agoraFormatado = $agora->format('Y-m-d H:i:s');
+
             $insertCard = $pdo->prepare(
-                'INSERT INTO cards (id_diretorio, texto_engb, texto_ptbr, audio_engb, audio_ptbr)
-                 VALUES (:id_diretorio, :texto_engb, :texto_ptbr, :audio_engb, :audio_ptbr)'
+                'INSERT INTO cards (id_diretorio, texto_engb, texto_ptbr, audio_engb, audio_ptbr, expansions, proxima_expansion)
+                 VALUES (:id_diretorio, :texto_engb, :texto_ptbr, :audio_engb, :audio_ptbr, :expansions, :proxima_expansion)'
             );
             $insertCard->execute([
                 'id_diretorio' => $idDiretorio,
@@ -918,6 +921,8 @@ try {
                 'texto_ptbr' => $textoPtBr,
                 'audio_engb' => $audios['audio_engb'],
                 'audio_ptbr' => $audios['audio_ptbr'],
+                'expansions' => -3,
+                'proxima_expansion' => $agoraFormatado,
             ]);
 
             $idCardDois = (int) $pdo->lastInsertId();
@@ -1031,10 +1036,12 @@ try {
 
             $textoPtBr = $ptbrAtivo ? $textoPtBr : '';
             $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
+            $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
+            $agoraFormatado = $agora->format('Y-m-d H:i:s');
 
             $insertCard = $pdo->prepare(
-                'INSERT INTO cards (id_diretorio, texto_engb, texto_ptbr, audio_engb, audio_ptbr)
-                 VALUES (:id_diretorio, :texto_engb, :texto_ptbr, :audio_engb, :audio_ptbr)'
+                'INSERT INTO cards (id_diretorio, texto_engb, texto_ptbr, audio_engb, audio_ptbr, expansions, proxima_expansion)
+                 VALUES (:id_diretorio, :texto_engb, :texto_ptbr, :audio_engb, :audio_ptbr, :expansions, :proxima_expansion)'
             );
             $insertCard->execute([
                 'id_diretorio' => $idDiretorio,
@@ -1042,6 +1049,8 @@ try {
                 'texto_ptbr' => $textoPtBr,
                 'audio_engb' => $audios['audio_engb'],
                 'audio_ptbr' => $audios['audio_ptbr'],
+                'expansions' => -3,
+                'proxima_expansion' => $agoraFormatado,
             ]);
 
             respond(201, true, 'Card criado com sucesso.', [
