@@ -462,10 +462,10 @@
       }
     }
 
-    async function ensureCurrentCardAudio() {
+    async function ensureCurrentCardAudio({ forceRegenerate = false } = {}) {
       const existenteEnGb = currentCardAudio();
       const existentePtBr = currentCardAudioPtBr();
-      if (existenteEnGb && (!currentCardPermitePtBr() || existentePtBr)) {
+      if (!forceRegenerate && existenteEnGb && (!currentCardPermitePtBr() || existentePtBr)) {
         return {
           audioEnGb: existenteEnGb,
           audioPtBr: existentePtBr,
@@ -790,7 +790,7 @@
       btnGerarAudioCard.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        const { audioEnGb } = await ensureCurrentCardAudio();
+        const { audioEnGb } = await ensureCurrentCardAudio({ forceRegenerate: true });
         if (!audioEnGb) {
           throw new Error('A API não retornou áudio para este card.');
         }
@@ -816,7 +816,7 @@
       btnGerarAudioCardPtBr.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        const { audioEnGb, audioPtBr } = await ensureCurrentCardAudio();
+        const { audioEnGb, audioPtBr } = await ensureCurrentCardAudio({ forceRegenerate: true });
         if (!audioPtBr || !audioEnGb) {
           throw new Error('A API não retornou áudio para este card.');
         }
