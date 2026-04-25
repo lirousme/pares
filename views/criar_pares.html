@@ -502,7 +502,8 @@
         if (ptbrAtivo) {
           resizeTextarea(textoRespostaParPtBr);
         }
-        showFeedback(`Par criado com sucesso! Card ${result.pair.id_card_dois} vinculado ao card ${result.pair.id_card_um}.`);
+        showFeedback(`Par criado com sucesso! Card ${result.pair.id_card_dois} vinculado ao card ${result.pair.id_card_um}. Expansão atual: ${result.pair.expansions}.`);
+        await loadCardMaisAntigo();
         feedbackCriarPares.classList.remove('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
         feedbackCriarPares.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
       } catch (error) {
@@ -559,7 +560,7 @@
           quantidadeRevisoesCardAtual = 0;
           audioCardAtualEnGbBase64 = '';
           resetCurrentAudioPlayer();
-          textoCard.textContent = 'Nenhum card com ok = 1 foi encontrado.';
+          textoCard.textContent = 'Nenhum card disponível para expansão foi encontrado.';
           metaCard.textContent = `Diretório ${idDiretorio}`;
           btnToggleOkCriarPares.classList.add('hidden');
           updateAudioButtonsState();

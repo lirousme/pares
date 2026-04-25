@@ -41,6 +41,26 @@ function parsePositiveInt(mixed $value, string $fieldName): int
     respond(422, false, sprintf('%s inválido.', $fieldName));
 }
 
+
+function nextExpansionAvailability(DateTimeImmutable $agora, int $expansions): string
+{
+    if ($expansions <= -2) {
+        $minutes = match ($expansions) {
+            -2 => 5,
+            -1 => 10,
+            default => 15,
+        };
+
+        return $agora->add(new DateInterval(sprintf('PT%dM', $minutes)))->format('Y-m-d H:i:s');
+    }
+
+    if ($expansions >= 1) {
+        return $agora->add(new DateInterval(sprintf('P%dD', $expansions)))->format('Y-m-d H:i:s');
+    }
+
+    return $agora->add(new DateInterval('PT15M'))->format('Y-m-d H:i:s');
+}
+
 function getGoogleCloudApiKey(): string
 {
     $apiKey = trim((string) (getenv('GOOGLE_CLOUD_API_KEY') ?: ''));
@@ -509,6 +529,9 @@ try {
                 $idCardExcluir = parsePositiveInt($_GET['id_card_excluir'], 'ID do card para excluir');
             }
 
+            $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
+            $agoraFormatado = $agora->format('Y-m-d H:i:s');
+
             $query = 'SELECT
                     c.id,
                     c.texto_engb AS texto,
@@ -518,13 +541,33 @@ try {
                     c.audio_engb AS audio,
                     c.audio_engb,
                     c.audio_ptbr,
-                    COALESCE(MAX(r.quantidade), 0) AS revisao_quantidade_max
+                    COALESCE(MAX(r.quantidade), 0) AS revisao_quantidade_max,
+                    pe.expansions,
+                    pe.proxima_expansion
                 FROM cards c
+                LEFT JOIN (
+                    SELECT p_atual.id_card_um, p_atual.expansions, p_atual.proxima_expansion
+                    FROM pares p_atual
+                    INNER JOIN (
+                        SELECT id_card_um, MAX(id) AS id_mais_recente
+                        FROM pares
+                        WHERE id_diretorio = :id_diretorio_pares
+                        GROUP BY id_card_um
+                    ) ultimos ON ultimos.id_mais_recente = p_atual.id
+                ) pe ON pe.id_card_um = c.id
                 LEFT JOIN pares p ON (p.id_card_um = c.id OR p.id_card_dois = c.id)
                 LEFT JOIN revisoes r ON r.id_par = p.id AND r.id_usuario = :id_usuario
-                WHERE c.id_diretorio = :id_diretorio AND c.ok = 1';
-            $params = ['id_diretorio' => $idDiretorio];
-            $params['id_usuario'] = $userId;
+                WHERE c.id_diretorio = :id_diretorio
+                  AND (
+                    pe.id_card_um IS NULL
+                    OR (pe.expansions < 7 AND pe.proxima_expansion <= :agora)
+                  )';
+            $params = [
+                'id_diretorio' => $idDiretorio,
+                'id_diretorio_pares' => $idDiretorio,
+                'id_usuario' => $userId,
+                'agora' => $agoraFormatado,
+            ];
 
             if ($idCardExcluir !== null) {
                 $query .= ' AND c.id <> :id_card_excluir';
@@ -861,7 +904,8 @@ try {
                 'SELECT id
                  FROM cards
                  WHERE id = :id_card AND id_diretorio = :id_diretorio
-                 LIMIT 1'
+                 LIMIT 1
+                 FOR UPDATE'
             );
             $checkCardUm->execute([
                 'id_card' => $idCardUm,
@@ -891,14 +935,52 @@ try {
 
             $idCardDois = (int) $pdo->lastInsertId();
 
+            $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
+
+            $ultimoParStmt = $pdo->prepare(
+                'SELECT id, expansions, proxima_expansion
+                 FROM pares
+                 WHERE id_card_um = :id_card_um AND id_diretorio = :id_diretorio
+                 ORDER BY id DESC
+                 LIMIT 1
+                 FOR UPDATE'
+            );
+            $ultimoParStmt->execute([
+                'id_card_um' => $idCardUm,
+                'id_diretorio' => $idDiretorio,
+            ]);
+            $ultimoPar = $ultimoParStmt->fetch();
+
+            $expansionsAtual = $ultimoPar ? (int) $ultimoPar['expansions'] : -3;
+            $expansionsNovo = $expansionsAtual + 1;
+
+            if ($expansionsNovo > 7) {
+                $pdo->rollBack();
+                respond(422, false, 'Card base já atingiu o limite máximo de expansões (7).');
+            }
+
+            $proximaExpansion = nextExpansionAvailability($agora, $expansionsNovo);
+
+            if ($ultimoPar) {
+                $proximaDisponivelAnterior = trim((string) ($ultimoPar['proxima_expansion'] ?? ''));
+                if ($proximaDisponivelAnterior !== '' && $proximaDisponivelAnterior > $agora->format('Y-m-d H:i:s')) {
+                    $pdo->rollBack();
+                    respond(422, false, 'Card base ainda não está disponível para nova expansão.', [
+                        'proxima_expansion' => $proximaDisponivelAnterior,
+                    ]);
+                }
+            }
+
             $insertPair = $pdo->prepare(
-                'INSERT INTO pares (id_card_um, id_card_dois, id_diretorio)
-                 VALUES (:id_card_um, :id_card_dois, :id_diretorio)'
+                'INSERT INTO pares (id_card_um, id_card_dois, id_diretorio, expansions, proxima_expansion)
+                 VALUES (:id_card_um, :id_card_dois, :id_diretorio, :expansions, :proxima_expansion)'
             );
             $insertPair->execute([
                 'id_card_um' => $idCardUm,
                 'id_card_dois' => $idCardDois,
                 'id_diretorio' => $idDiretorio,
+                'expansions' => $expansionsNovo,
+                'proxima_expansion' => $proximaExpansion,
             ]);
 
             $idPar = (int) $pdo->lastInsertId();
@@ -910,6 +992,8 @@ try {
                     'id_card_um' => $idCardUm,
                     'id_card_dois' => $idCardDois,
                     'id_diretorio' => $idDiretorio,
+                    'expansions' => $expansionsNovo,
+                    'proxima_expansion' => $proximaExpansion,
                 ],
                 'card' => [
                     'id' => $idCardDois,
