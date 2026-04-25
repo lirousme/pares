@@ -1,0 +1,2 @@
+ALTER TABLE usuarios
+  ADD COLUMN ptbr INT NOT NULL DEFAULT 1 AFTER senha_hash;

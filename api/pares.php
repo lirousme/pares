@@ -133,11 +133,17 @@ function synthesizeCardAudioOrRespond(string $texto, string $idioma): string
     }
 }
 
-function synthesizeCardAudiosOrRespond(string $textoEnGb, string $textoPtBr): array
+function synthesizeCardAudiosOrRespond(string $textoEnGb, string $textoPtBr, bool $ptbrAtivo = true): array
 {
+    $audioEnGb = synthesizeCardAudioOrRespond($textoEnGb, 'en-GB');
+    $audioPtBr = null;
+    if ($ptbrAtivo && $textoPtBr !== '') {
+        $audioPtBr = synthesizeCardAudioOrRespond($textoPtBr, 'pt-BR');
+    }
+
     return [
-        'audio_engb' => synthesizeCardAudioOrRespond($textoEnGb, 'en-GB'),
-        'audio_ptbr' => synthesizeCardAudioOrRespond($textoPtBr, 'pt-BR'),
+        'audio_engb' => $audioEnGb,
+        'audio_ptbr' => $audioPtBr,
     ];
 }
 
@@ -286,6 +292,108 @@ function translateTextWithOpenAi(string $texto): array
     ];
 }
 
+function translateTextToEnGbWithOpenAi(string $texto): array
+{
+    $apiKey = getOpenAiApiKey();
+    $model = trim((string) (getenv('OPENAI_MODEL') ?: 'gpt-4.1-mini'));
+
+    $payload = [
+        'model' => $model,
+        'input' => [
+            [
+                'role' => 'system',
+                'content' => [
+                    [
+                        'type' => 'input_text',
+                        'text' => 'Você é um tradutor especializado em português brasileiro para inglês britânico. Se o usuário enviar texto em português brasileiro, traduza para inglês britânico (en-GB). Se já estiver em inglês, mantenha em inglês natural en-GB. Responda APENAS com JSON válido no formato {"translated_text":"...","target_language":"en-GB"}.',
+                    ],
+                ],
+            ],
+            [
+                'role' => 'user',
+                'content' => [
+                    [
+                        'type' => 'input_text',
+                        'text' => $texto,
+                    ],
+                ],
+            ],
+        ],
+        'temperature' => 0.1,
+    ];
+
+    $ch = curl_init('https://api.openai.com/v1/responses');
+    if ($ch === false) {
+        throw new RuntimeException('Falha ao inicializar requisição de tradução.');
+    }
+
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $apiKey,
+        ],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_TIMEOUT => 30,
+    ]);
+
+    $rawResponse = curl_exec($ch);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($rawResponse === false) {
+        throw new RuntimeException($curlError !== '' ? $curlError : 'Falha ao chamar serviço de tradução.');
+    }
+
+    $decoded = json_decode($rawResponse, true);
+    if (!is_array($decoded)) {
+        throw new RuntimeException('Resposta inválida do serviço de tradução.');
+    }
+
+    if ($httpCode < 200 || $httpCode >= 300) {
+        $apiMessage = '';
+        if (isset($decoded['error']) && is_array($decoded['error'])) {
+            $apiMessage = trim((string) ($decoded['error']['message'] ?? ''));
+        }
+
+        throw new RuntimeException($apiMessage !== '' ? $apiMessage : 'Falha ao traduzir texto com IA.');
+    }
+
+    $assistantText = extractOpenAiText($decoded);
+    if ($assistantText === '') {
+        throw new RuntimeException('A IA não retornou texto traduzido.');
+    }
+
+    $translationData = json_decode($assistantText, true);
+    if (!is_array($translationData)) {
+        throw new RuntimeException('A IA retornou um formato inesperado de tradução.');
+    }
+
+    $translatedText = trim((string) ($translationData['translated_text'] ?? ''));
+    if ($translatedText === '') {
+        throw new RuntimeException('A tradução retornada está vazia.');
+    }
+
+    return [
+        'translated_text' => $translatedText,
+        'target_language' => 'en-GB',
+    ];
+}
+
+function getUserPtBrAtivo(PDO $pdo, int $userId): bool
+{
+    $stmt = $pdo->prepare('SELECT ptbr FROM usuarios WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $userId]);
+    $user = $stmt->fetch();
+    if (!$user) {
+        respond(404, false, 'Usuário não encontrado.');
+    }
+
+    return ((int) ($user['ptbr'] ?? 1)) !== 2;
+}
+
 function toRevisionCount(mixed $value): int
 {
     if (is_int($value)) {
@@ -377,6 +485,7 @@ if ($userId <= 0) {
 
 try {
     $pdo = db();
+    $ptbrAtivo = getUserPtBrAtivo($pdo, $userId);
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
     if ($method === 'GET') {
@@ -432,12 +541,19 @@ try {
                 respond(200, true, 'Nenhum card elegível encontrado.', [
                     'id_diretorio' => $idDiretorio,
                     'card' => null,
+                    'ptbr_ativo' => $ptbrAtivo,
                 ]);
+            }
+
+            if (!$ptbrAtivo) {
+                $card['texto_ptbr'] = '';
+                $card['audio_ptbr'] = null;
             }
 
             respond(200, true, 'Card carregado com sucesso.', [
                 'id_diretorio' => $idDiretorio,
                 'card' => $card,
+                'ptbr_ativo' => $ptbrAtivo,
             ]);
         }
 
@@ -476,6 +592,15 @@ try {
             'agora' => $agoraFormatado,
         ]);
         $paresVencidos = reorderPairsByRevisionPriority($stmt->fetchAll());
+        if (!$ptbrAtivo) {
+            foreach ($paresVencidos as &$par) {
+                $par['card_um_texto_ptbr'] = '';
+                $par['card_dois_texto_ptbr'] = '';
+                $par['card_um_audio_ptbr'] = null;
+                $par['card_dois_audio_ptbr'] = null;
+            }
+            unset($par);
+        }
 
         $nextReviewStmt = $pdo->prepare(
             'SELECT
@@ -501,6 +626,7 @@ try {
             'pares' => $paresVencidos,
             'agora' => $agoraFormatado,
             'proxima_revisao_mais_proxima' => $proximaRevisao,
+            'ptbr_ativo' => $ptbrAtivo,
         ]);
     }
 
@@ -531,6 +657,32 @@ try {
                 'texto_original' => $texto,
                 'texto_traduzido' => $translation['translated_text'],
                 'idioma_destino' => $translation['target_language'],
+            ]);
+        }
+
+        if ($action === 'traduzir_texto_para_engb') {
+            $texto = trim((string) ($payload['texto'] ?? ''));
+
+            if ($texto === '') {
+                respond(422, false, 'Texto para tradução é obrigatório.');
+            }
+
+            if (mb_strlen($texto) > 1500) {
+                respond(422, false, 'Texto para tradução deve ter no máximo 1500 caracteres.');
+            }
+
+            try {
+                $translation = translateTextToEnGbWithOpenAi($texto);
+            } catch (Throwable $e) {
+                respond(502, false, 'Não foi possível traduzir o texto para en-GB.', [
+                    'detail' => $e->getMessage(),
+                ]);
+            }
+
+            respond(200, true, 'Texto traduzido para en-GB com sucesso.', [
+                'texto_original' => $texto,
+                'texto_traduzido' => $translation['translated_text'],
+                'idioma_destino' => 'en-GB',
             ]);
         }
 
@@ -600,12 +752,12 @@ try {
             }
 
             $textoEnGb = trim((string) ($card['texto_engb'] ?? ''));
-            $textoPtBr = trim((string) ($card['texto_ptbr'] ?? ''));
-            if ($textoEnGb === '' || $textoPtBr === '') {
-                respond(422, false, 'Card sem texto em um dos idiomas para gerar áudio.');
+            $textoPtBr = $ptbrAtivo ? trim((string) ($card['texto_ptbr'] ?? '')) : '';
+            if ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
+                respond(422, false, 'Card sem texto necessário para gerar áudio.');
             }
 
-            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr);
+            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
 
             $updateCard = $pdo->prepare(
                 'UPDATE cards
@@ -624,7 +776,7 @@ try {
                     'id_diretorio' => (int) $card['id_diretorio'],
                     'audio' => $audios['audio_engb'],
                     'audio_engb' => $audios['audio_engb'],
-                    'audio_ptbr' => $audios['audio_ptbr'],
+                    'audio_ptbr' => $ptbrAtivo ? $audios['audio_ptbr'] : null,
                 ],
             ]);
         }
@@ -634,8 +786,8 @@ try {
             $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
             $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
-            if ($textoEnGb === '' || $textoPtBr === '') {
-                respond(422, false, 'Textos dos dois idiomas são obrigatórios.');
+            if ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
+                respond(422, false, 'Texto en-GB é obrigatório e pt-BR é obrigatório apenas quando estiver ativo.');
             }
 
             if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
@@ -666,7 +818,7 @@ try {
             );
             $updateCard->execute([
                 'texto_engb' => $textoEnGb,
-                'texto_ptbr' => $textoPtBr,
+                'texto_ptbr' => $ptbrAtivo ? $textoPtBr : '',
                 'id_card' => $idCard,
             ]);
 
@@ -676,7 +828,7 @@ try {
                     'id_diretorio' => (int) $card['id_diretorio'],
                     'texto' => $textoEnGb,
                     'texto_engb' => $textoEnGb,
-                    'texto_ptbr' => $textoPtBr,
+                    'texto_ptbr' => $ptbrAtivo ? $textoPtBr : '',
                 ],
             ]);
         }
@@ -687,8 +839,8 @@ try {
             $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
             $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
-            if ($textoEnGb === '' || $textoPtBr === '') {
-                respond(422, false, 'Textos dos dois idiomas são obrigatórios.');
+            if ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
+                respond(422, false, 'Texto en-GB é obrigatório e pt-BR é obrigatório apenas quando estiver ativo.');
             }
 
             if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
@@ -720,7 +872,8 @@ try {
                 respond(404, false, 'Card base não encontrado no diretório informado.');
             }
 
-            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr);
+            $textoPtBr = $ptbrAtivo ? $textoPtBr : '';
+            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
 
             $pdo->beginTransaction();
 
@@ -766,7 +919,7 @@ try {
                     'texto_ptbr' => $textoPtBr,
                     'audio' => $audios['audio_engb'],
                     'audio_engb' => $audios['audio_engb'],
-                    'audio_ptbr' => $audios['audio_ptbr'],
+                    'audio_ptbr' => $ptbrAtivo ? $audios['audio_ptbr'] : null,
                 ],
             ]);
         }
@@ -776,8 +929,8 @@ try {
             $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
             $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
-            if ($textoEnGb === '' || $textoPtBr === '') {
-                respond(422, false, 'Textos dos dois idiomas são obrigatórios.');
+            if ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
+                respond(422, false, 'Texto en-GB é obrigatório e pt-BR é obrigatório apenas quando estiver ativo.');
             }
 
             if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
@@ -794,7 +947,8 @@ try {
                 respond(404, false, 'Diretório não encontrado.');
             }
 
-            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr);
+            $textoPtBr = $ptbrAtivo ? $textoPtBr : '';
+            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
 
             $insertCard = $pdo->prepare(
                 'INSERT INTO cards (id_diretorio, texto_engb, texto_ptbr, audio_engb, audio_ptbr)
@@ -817,7 +971,7 @@ try {
                     'texto_ptbr' => $textoPtBr,
                     'audio' => $audios['audio_engb'],
                     'audio_engb' => $audios['audio_engb'],
-                    'audio_ptbr' => $audios['audio_ptbr'],
+                    'audio_ptbr' => $ptbrAtivo ? $audios['audio_ptbr'] : null,
                     'ok' => 1,
                 ],
             ]);

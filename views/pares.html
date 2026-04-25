@@ -120,22 +120,24 @@
           class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20"
           required
         ></textarea>
-        <label for="textoEditarCardPtBr" class="block text-sm text-slate-200">Texto (pt-BR)</label>
-        <textarea
-          id="textoEditarCardPtBr"
-          name="texto_ptbr"
-          rows="4"
-          maxlength="1500"
-          class="w-full rounded-lg border border-emerald-500/60 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20"
-          required
-        ></textarea>
+        <div id="containerEditarCardPtBr">
+          <label for="textoEditarCardPtBr" class="block text-sm text-slate-200">Texto (pt-BR)</label>
+          <textarea
+            id="textoEditarCardPtBr"
+            name="texto_ptbr"
+            rows="4"
+            maxlength="1500"
+            class="w-full rounded-lg border border-emerald-500/60 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20"
+            required
+          ></textarea>
+        </div>
         <div class="flex justify-end">
           <button
             id="btnTraduzirEditarCard"
             type="button"
             class="rounded-lg border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Traduzir
+            Traduzir para en-GB
           </button>
         </div>
         <div class="flex items-center justify-end gap-2 pt-1">
@@ -180,6 +182,7 @@
     const formEditarCard = document.getElementById('formEditarCard');
     const textoEditarCard = document.getElementById('textoEditarCard');
     const textoEditarCardPtBr = document.getElementById('textoEditarCardPtBr');
+    const containerEditarCardPtBr = document.getElementById('containerEditarCardPtBr');
     const btnTraduzirEditarCard = document.getElementById('btnTraduzirEditarCard');
     const btnSalvarEdicaoCard = document.getElementById('btnSalvarEdicaoCard');
 
@@ -187,6 +190,7 @@
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
     const tipoDiretorio = Number.parseInt(params.get('tipo_diretorio') || '2', 10);
     const LIMITE_REVISOES_OCULTAR_PTBR = 10;
+    let ptbrAtivo = true;
 
     let pares = [];
     let indiceParAtual = 0;
@@ -345,7 +349,24 @@
     }
 
     function currentCardPermitePtBr() {
-      return currentRevisaoQuantidade() <= LIMITE_REVISOES_OCULTAR_PTBR;
+      return ptbrAtivo && currentRevisaoQuantidade() <= LIMITE_REVISOES_OCULTAR_PTBR;
+    }
+
+    async function carregarPreferenciaPtBr() {
+      const response = await fetch('api/usuario.php', { cache: 'no-store' });
+      const result = await response.json();
+      if (response.status === 401) {
+        window.location.href = 'index.html?view=login';
+        return;
+      }
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Não foi possível carregar preferência pt-BR.');
+      }
+      ptbrAtivo = Boolean(result.ptbr_ativo);
+      textoEditarCardPtBr.required = ptbrAtivo;
+      containerEditarCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+      textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+      btnGerarAudioCardPtBr.classList.toggle('hidden', !ptbrAtivo);
     }
 
     function setCurrentCardTexto(texto) {
@@ -842,8 +863,8 @@
         return;
       }
 
-      if (!textoEnGb || !textoPtBr) {
-        showFeedback('Preencha os textos em en-GB e pt-BR para salvar.');
+      if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
+        showFeedback('Preencha o texto en-GB e, com pt-BR ativo, também o texto pt-BR.');
         return;
       }
 
@@ -860,7 +881,7 @@
             action: 'editar_card',
             id_card: idCard,
             texto_engb: textoEnGb,
-            texto_ptbr: textoPtBr,
+            texto_ptbr: ptbrAtivo ? textoPtBr : '',
           }),
         });
         const result = await response.json();
@@ -875,7 +896,7 @@
         }
 
         setCurrentCardTexto(result.card?.texto_engb || textoEnGb);
-        setCurrentCardTextoPtBr(result.card?.texto_ptbr || textoPtBr);
+        setCurrentCardTextoPtBr(ptbrAtivo ? (result.card?.texto_ptbr || textoPtBr) : '');
         renderCard();
         fecharModalEdicao();
         showFeedback('Card atualizado com sucesso.', 'success');
@@ -888,9 +909,9 @@
     });
 
     btnTraduzirEditarCard.addEventListener('click', async () => {
-      const texto = textoEditarCard.value.trim() || textoEditarCardPtBr.value.trim();
+      const texto = textoEditarCard.value.trim();
       if (!texto) {
-        showFeedback('Digite um texto para traduzir.');
+        showFeedback('Digite no campo en-GB (em português) para traduzir para en-GB.');
         return;
       }
 
@@ -904,7 +925,7 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action: 'traduzir_texto',
+            action: 'traduzir_texto_para_engb',
             texto,
           }),
         });
@@ -919,17 +940,13 @@
           throw new Error(result.message || 'Não foi possível traduzir o texto.');
         }
 
-        if ((result.idioma_destino || '') === 'pt-BR') {
-          textoEditarCardPtBr.value = result.texto_traduzido || texto;
-        } else {
-          textoEditarCard.value = result.texto_traduzido || texto;
-        }
+        textoEditarCard.value = result.texto_traduzido || texto;
         hideFeedback();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao traduzir texto.');
       } finally {
         btnTraduzirEditarCard.disabled = false;
-        btnTraduzirEditarCard.textContent = 'Traduzir';
+        btnTraduzirEditarCard.textContent = 'Traduzir para en-GB';
       }
     });
 
@@ -995,6 +1012,14 @@
           throw new Error(result.message || 'Não foi possível carregar os pares.');
         }
 
+        if (typeof result.ptbr_ativo === 'boolean') {
+          ptbrAtivo = result.ptbr_ativo;
+          textoEditarCardPtBr.required = ptbrAtivo;
+          containerEditarCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+          textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+          btnGerarAudioCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+        }
+
         pares = Array.isArray(result.pares) ? result.pares : [];
         proximaRevisaoMaisProxima = result.proxima_revisao_mais_proxima || null;
         indiceParAtual = 0;
@@ -1017,6 +1042,12 @@
     }
 
     updateAutoplayButton();
-    loadPairs();
+    btnTraduzirEditarCard.textContent = 'Traduzir para en-GB';
+    carregarPreferenciaPtBr()
+      .then(loadPairs)
+      .catch((error) => {
+        showFeedback(error.message || 'Erro ao carregar preferência pt-BR.');
+        loadPairs();
+      });
   })();
 </script>
