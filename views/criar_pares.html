@@ -501,7 +501,11 @@
         if (ptbrAtivo) {
           resizeTextarea(textoRespostaParPtBr);
         }
-        showFeedback(`Card criado com sucesso! Card ${result.card.id} vinculado ao card base ${result.base_card.id}. Expansão atual: ${result.base_card.expansions}.`);
+        const baseCardRemovido = Boolean(result.base_card?.removido);
+        const mensagemRemocao = baseCardRemovido
+          ? ' Card base removido automaticamente após atingir 7 expansões.'
+          : '';
+        showFeedback(`Card criado com sucesso! Card ${result.card.id} vinculado ao card base ${result.base_card.id}. Expansão atual: ${result.base_card.expansions}.${mensagemRemocao}`);
         await loadCardMaisAntigo();
         feedbackCriarPares.classList.remove('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
         feedbackCriarPares.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');

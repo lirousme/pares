@@ -890,18 +890,32 @@ try {
                 ]);
             }
 
-            $proximaExpansion = nextExpansionAvailability($agora, $expansionsNovo);
+            $baseCardRemovido = false;
+            $proximaExpansion = null;
 
-            $updateCardBase = $pdo->prepare(
-                'UPDATE cards
-                 SET expansions = :expansions, proxima_expansion = :proxima_expansion
-                 WHERE id = :id_card'
-            );
-            $updateCardBase->execute([
-                'expansions' => $expansionsNovo,
-                'proxima_expansion' => $proximaExpansion,
-                'id_card' => $idCardUm,
-            ]);
+            if ($expansionsNovo >= 7) {
+                $deleteCardBase = $pdo->prepare(
+                    'DELETE FROM cards
+                     WHERE id = :id_card'
+                );
+                $deleteCardBase->execute([
+                    'id_card' => $idCardUm,
+                ]);
+                $baseCardRemovido = true;
+            } else {
+                $proximaExpansion = nextExpansionAvailability($agora, $expansionsNovo);
+
+                $updateCardBase = $pdo->prepare(
+                    'UPDATE cards
+                     SET expansions = :expansions, proxima_expansion = :proxima_expansion
+                     WHERE id = :id_card'
+                );
+                $updateCardBase->execute([
+                    'expansions' => $expansionsNovo,
+                    'proxima_expansion' => $proximaExpansion,
+                    'id_card' => $idCardUm,
+                ]);
+            }
 
             $pdo->commit();
 
@@ -910,6 +924,7 @@ try {
                     'id' => $idCardUm,
                     'expansions' => $expansionsNovo,
                     'proxima_expansion' => $proximaExpansion,
+                    'removido' => $baseCardRemovido,
                 ],
                 'card' => [
                     'id' => $idCardDois,
