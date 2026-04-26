@@ -66,6 +66,8 @@
 
 <script>
   (function initBibliotecaView() {
+    const viewLifecycleController = new AbortController();
+    const { signal } = viewLifecycleController;
     const listaDiretorios = document.getElementById('listaDiretorios');
     const feedback = document.getElementById('feedback');
     const subtitle = document.getElementById('subtitle');
@@ -290,11 +292,11 @@
     btnVoltar.addEventListener('click', () => {
       window.history.back();
       setTimeout(loadDirectories, 0);
-    });
+    }, { signal });
 
     btnNovoDiretorio.addEventListener('click', () => {
       openCreateModal();
-    });
+    }, { signal });
 
     switchPtBr.addEventListener('change', async () => {
       const novoValor = switchPtBr.checked ? 1 : 2;
@@ -328,14 +330,14 @@
       } finally {
         switchPtBr.disabled = false;
       }
-    });
+    }, { signal });
 
-    btnCancelarModal.addEventListener('click', closeModal);
+    btnCancelarModal.addEventListener('click', closeModal, { signal });
     modalDiretorio.addEventListener('click', (event) => {
       if (event.target === modalDiretorio) {
         closeModal();
       }
-    });
+    }, { signal });
 
     formDiretorio.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -402,7 +404,7 @@
       } catch (error) {
         showModalError(error.message || 'Erro inesperado ao salvar diretório.');
       }
-    });
+    }, { signal });
 
     btnExcluir.addEventListener('click', async () => {
       if (!diretorioEditando) {
@@ -444,13 +446,17 @@
       } catch (error) {
         showModalError(error.message || 'Erro inesperado ao excluir diretório.');
       }
-    });
+    }, { signal });
 
     window.addEventListener('popstate', () => {
       if (new URLSearchParams(window.location.search).get('view') === 'biblioteca') {
         loadDirectories();
       }
-    });
+    }, { signal });
+
+    document.addEventListener('view:before-unload', () => {
+      viewLifecycleController.abort();
+    }, { once: true, signal });
 
     carregarPreferenciaPtBr();
     loadDirectories();

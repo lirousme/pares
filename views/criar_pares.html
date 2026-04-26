@@ -157,6 +157,8 @@
 
 <script>
   (function initCriarParesView() {
+    const viewLifecycleController = new AbortController();
+    const { signal } = viewLifecycleController;
     const btnVoltar = document.getElementById('btnVoltarCriarPares');
     const btnNovoCard = document.getElementById('btnNovoCard');
     const modalNovoCard = document.getElementById('modalNovoCard');
@@ -271,17 +273,17 @@
       const newUrl = `${window.location.pathname}?${nextParams.toString()}`;
       window.history.pushState({}, '', newUrl);
       window.dispatchEvent(new PopStateEvent('popstate'));
-    });
+    }, { signal });
 
-    btnNovoCard.addEventListener('click', openModalNovoCard);
-    btnFecharModalNovoCard.addEventListener('click', closeModalNovoCard);
-    btnCancelarNovoCard.addEventListener('click', closeModalNovoCard);
+    btnNovoCard.addEventListener('click', openModalNovoCard, { signal });
+    btnFecharModalNovoCard.addEventListener('click', closeModalNovoCard, { signal });
+    btnCancelarNovoCard.addEventListener('click', closeModalNovoCard, { signal });
 
     modalNovoCard.addEventListener('click', (event) => {
       if (event.target === modalNovoCard) {
         closeModalNovoCard();
       }
-    });
+    }, { signal });
 
     formNovoCard.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -344,7 +346,7 @@
         btnSalvarNovoCard.disabled = false;
         btnSalvarNovoCard.textContent = 'Salvar';
       }
-    });
+    }, { signal });
 
     btnTraduzirNovoCard.addEventListener('click', async () => {
       const texto = textoNovoCardEnGb.value.trim();
@@ -387,15 +389,15 @@
         btnTraduzirNovoCard.disabled = false;
         btnTraduzirNovoCard.textContent = 'Traduzir para en-GB';
       }
-    });
+    }, { signal });
 
     function resizeTextarea(textarea) {
       textarea.style.height = 'auto';
       textarea.style.height = `${Math.min(textarea.scrollHeight, 192)}px`;
     }
 
-    textoRespostaParEnGb.addEventListener('input', () => resizeTextarea(textoRespostaParEnGb));
-    textoRespostaParPtBr.addEventListener('input', () => resizeTextarea(textoRespostaParPtBr));
+    textoRespostaParEnGb.addEventListener('input', () => resizeTextarea(textoRespostaParEnGb), { signal });
+    textoRespostaParPtBr.addEventListener('input', () => resizeTextarea(textoRespostaParPtBr), { signal });
     resizeTextarea(textoRespostaParEnGb);
     resizeTextarea(textoRespostaParPtBr);
 
@@ -441,7 +443,7 @@
         btnTraduzirRespostaPar.disabled = false;
         btnTraduzirRespostaPar.textContent = 'Traduzir para en-GB';
       }
-    });
+    }, { signal });
 
     formRespostaPar.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -515,7 +517,7 @@
         btnEnviarRespostaPar.disabled = false;
         btnEnviarRespostaPar.textContent = 'Enviar';
       }
-    });
+    }, { signal });
 
     async function loadCardMaisAntigo(idCardExcluir = null) {
       if (Number.isNaN(idDiretorio) || idDiretorio <= 0) {
@@ -657,7 +659,7 @@
         btnGerarAudioCardEnGb.disabled = false;
         btnGerarAudioCardEnGb.classList.remove('opacity-50', 'cursor-not-allowed');
       }
-    });
+    }, { signal });
 
 
     btnToggleOkCriarPares.addEventListener('click', async () => {
@@ -704,7 +706,13 @@
       } finally {
         btnToggleOkCriarPares.disabled = false;
       }
-    });
+    }, { signal });
+
+    document.addEventListener('view:before-unload', () => {
+      resetCurrentAudioPlayer();
+      audioCardAtualEnGbBase64 = '';
+      viewLifecycleController.abort();
+    }, { once: true, signal });
 
     btnTraduzirNovoCard.textContent = 'Traduzir para en-GB';
     btnTraduzirRespostaPar.textContent = 'Traduzir para en-GB';
