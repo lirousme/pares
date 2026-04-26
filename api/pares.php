@@ -551,7 +551,6 @@ try {
                     c.texto_engb AS texto,
                     c.texto_engb,
                     c.texto_ptbr,
-                    c.ok,
                     c.expansions,
                     c.proxima_expansion,
                     0 AS revisao_quantidade_max
@@ -571,7 +570,6 @@ try {
                     c.texto_engb AS texto,
                     c.texto_engb,
                     c.texto_ptbr,
-                    c.ok,
                     c.expansions,
                     c.proxima_expansion,
                     0 AS revisao_quantidade_max
@@ -667,51 +665,6 @@ try {
                 'texto_original' => $texto,
                 'texto_traduzido' => $translation['translated_text'],
                 'idioma_destino' => 'en-GB',
-            ]);
-        }
-
-        if ($action === 'alternar_ok_card') {
-            $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
-
-            $pdo->beginTransaction();
-
-            $selectCard = $pdo->prepare(
-                'SELECT c.id, c.ok
-                 FROM cards c
-                 INNER JOIN diretorios d ON d.id = c.id_diretorio
-                 WHERE c.id = :id_card AND d.id_usuario = :id_usuario
-                 LIMIT 1
-                 FOR UPDATE'
-            );
-            $selectCard->execute([
-                'id_card' => $idCard,
-                'id_usuario' => $userId,
-            ]);
-            $card = $selectCard->fetch();
-
-            if (!$card) {
-                respond(404, false, 'Card não encontrado.');
-            }
-
-            $okAnterior = (int) $card['ok'];
-            $okNovo = $okAnterior === 1 ? 2 : 1;
-
-            $updateCard = $pdo->prepare(
-                'UPDATE cards
-                 SET ok = :ok
-                 WHERE id = :id_card'
-            );
-            $updateCard->execute([
-                'ok' => $okNovo,
-                'id_card' => $idCard,
-            ]);
-
-            $pdo->commit();
-
-            respond(200, true, 'Valor da coluna ok atualizado com sucesso.', [
-                'id_card' => $idCard,
-                'ok_anterior' => $okAnterior,
-                'ok_novo' => $okNovo,
             ]);
         }
 
@@ -1020,7 +973,6 @@ try {
                     'texto' => $textoEnGb,
                     'texto_engb' => $textoEnGb,
                     'texto_ptbr' => $textoPtBr,
-                    'ok' => 1,
                 ],
             ]);
         }
