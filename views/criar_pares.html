@@ -7,21 +7,25 @@
     >
       Voltar
     </button>
-    <h1 id="tituloExpansionsCriarPares" class="text-xl font-bold text-white">--</h1>
+    <div class="flex items-center gap-2">
+      <button
+        id="contadorCriacaoCards"
+        type="button"
+        disabled
+        aria-label="Contador de criação de cards"
+        class="inline-flex h-9 min-w-9 items-center justify-center rounded-lg border border-brand-500/60 bg-brand-500/20 px-3 text-sm font-bold leading-none text-brand-200"
+      >
+        0
+      </button>
+      <h1 id="tituloExpansionsCriarPares" class="text-xl font-bold text-white">--</h1>
+    </div>
     <div class="flex items-center gap-2">
       <button
         id="btnGerarAudioCardEnGb"
         type="button"
-        class="rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+        class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
       >
         Gerar áudio
-      </button>
-      <button
-        id="btnToggleOkCriarPares"
-        type="button"
-        class="rounded-md border border-slate-600 bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
-      >
-        ok: --
       </button>
       <button
         id="btnNovoCard"
@@ -172,8 +176,8 @@
     const textoCard = document.getElementById('textoCardCriarPares');
     const textoCardPtBr = document.getElementById('textoCardPtBrCriarPares');
     const tituloExpansions = document.getElementById('tituloExpansionsCriarPares');
+    const contadorCriacaoCards = document.getElementById('contadorCriacaoCards');
     const btnGerarAudioCardEnGb = document.getElementById('btnGerarAudioCardEnGb');
-    const btnToggleOkCriarPares = document.getElementById('btnToggleOkCriarPares');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
     const textoRespostaParEnGb = document.getElementById('textoRespostaParEnGb');
@@ -184,7 +188,7 @@
     const params = new URLSearchParams(window.location.search);
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
     let idCardAtual = null;
-    let okCardAtual = null;
+    let contadorCardsCriados = 0;
     let quantidadeRevisoesCardAtual = 0;
     const AUDIO_CARD_MAX_CHARS = 500;
     let audioCardAtual = null;
@@ -249,6 +253,11 @@
       feedbackCriarPares.classList.remove('hidden');
       feedbackCriarPares.classList.remove('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
       feedbackCriarPares.classList.add('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
+    }
+
+    function incrementarContadorCardsCriados() {
+      contadorCardsCriados = contadorCardsCriados >= 15 ? 0 : contadorCardsCriados + 1;
+      contadorCriacaoCards.textContent = String(contadorCardsCriados);
     }
 
     function hideFeedback() {
@@ -335,11 +344,9 @@
         closeModalNovoCard();
         renderTextoCard(result.card);
         idCardAtual = Number.parseInt(result.card.id, 10);
-        okCardAtual = Number.parseInt(result.card.ok, 10);
         quantidadeRevisoesCardAtual = 0;
+        incrementarContadorCardsCriados();
         resetCurrentAudioPlayer();
-        btnToggleOkCriarPares.classList.remove('hidden');
-        btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
         updateAudioButtonsState();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao criar card.');
@@ -505,6 +512,7 @@
           resizeTextarea(textoRespostaParPtBr);
         }
         const baseCardRemovido = Boolean(result.base_card?.removido);
+        incrementarContadorCardsCriados();
         const mensagemRemocao = baseCardRemovido
           ? ' Card base removido automaticamente após atingir 7 expansões.'
           : '';
@@ -562,33 +570,26 @@
 
         if (!result.card) {
           idCardAtual = null;
-          okCardAtual = null;
           quantidadeRevisoesCardAtual = 0;
           resetCurrentAudioPlayer();
           textoCard.textContent = 'Nenhum card disponível para expansão foi encontrado.';
           tituloExpansions.textContent = '--';
-          btnToggleOkCriarPares.classList.add('hidden');
           updateAudioButtonsState();
           return;
         }
 
         idCardAtual = Number.parseInt(result.card.id, 10);
-        okCardAtual = Number.parseInt(result.card.ok, 10);
         quantidadeRevisoesCardAtual = Number.parseInt(result.card.revisao_quantidade_max || '0', 10) || 0;
         resetCurrentAudioPlayer();
         renderTextoCard(result.card);
-        btnToggleOkCriarPares.classList.remove('hidden');
-        btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
         updateAudioButtonsState();
       } catch (error) {
         idCardAtual = null;
-        okCardAtual = null;
         quantidadeRevisoesCardAtual = 0;
         resetCurrentAudioPlayer();
         showFeedback(error.message || 'Erro inesperado ao carregar card.');
         textoCard.textContent = 'Erro ao carregar o card.';
         tituloExpansions.textContent = '--';
-        btnToggleOkCriarPares.classList.add('hidden');
         updateAudioButtonsState();
       }
     }
@@ -663,53 +664,6 @@
       } finally {
         btnGerarAudioCardEnGb.disabled = false;
         btnGerarAudioCardEnGb.classList.remove('opacity-50', 'cursor-not-allowed');
-      }
-    }, { signal });
-
-
-    btnToggleOkCriarPares.addEventListener('click', async () => {
-      hideFeedback();
-
-      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
-        showFeedback('Nenhum card ativo disponível para alternar o valor de ok.');
-        return;
-      }
-
-      btnToggleOkCriarPares.disabled = true;
-
-      try {
-        const response = await fetch('api/pares.php', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action: 'alternar_ok_card',
-            id_card: idCardAtual,
-          }),
-        });
-        const result = await response.json();
-
-        if (response.status === 401) {
-          window.location.href = 'index.html?view=login';
-          return;
-        }
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.message || 'Não foi possível alternar o valor de ok.');
-        }
-
-        const idCardAnterior = idCardAtual;
-        okCardAtual = Number.parseInt(result.ok_novo, 10);
-        if (okCardAtual === 1) {
-          btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
-        } else {
-          await loadCardMaisAntigo(idCardAnterior);
-        }
-      } catch (error) {
-        showFeedback(error.message || 'Erro inesperado ao alternar o valor de ok.');
-      } finally {
-        btnToggleOkCriarPares.disabled = false;
       }
     }, { signal });
 
