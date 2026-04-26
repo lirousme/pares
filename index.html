@@ -68,6 +68,7 @@
     }
 
     async function renderView() {
+      document.dispatchEvent(new CustomEvent('view:before-unload'));
       const viewName = getViewName();
       const viewPath = `views/${viewName}.html`;
       applyLayout(viewName);
