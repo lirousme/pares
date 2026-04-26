@@ -51,6 +51,14 @@
     <div class="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 shadow-lg">
       <div class="mb-2 flex flex-wrap items-center justify-end gap-3">
         <button
+          id="btnReproduzirAudioCardEnGb"
+          type="button"
+          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span id="iconeReproduzirAudioCardEnGb" aria-hidden="true">▶</span>
+          <span id="textoReproduzirAudioCardEnGb">Play áudio</span>
+        </button>
+        <button
           id="btnTraduzirRespostaPar"
           type="button"
           class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -183,6 +191,9 @@
     const textoRespostaParEnGb = document.getElementById('textoRespostaParEnGb');
     const textoRespostaParPtBr = document.getElementById('textoRespostaParPtBr');
     const containerRespostaParPtBr = document.getElementById('containerRespostaParPtBr');
+    const btnReproduzirAudioCardEnGb = document.getElementById('btnReproduzirAudioCardEnGb');
+    const iconeReproduzirAudioCardEnGb = document.getElementById('iconeReproduzirAudioCardEnGb');
+    const textoReproduzirAudioCardEnGb = document.getElementById('textoReproduzirAudioCardEnGb');
     const btnTraduzirRespostaPar = document.getElementById('btnTraduzirRespostaPar');
     const btnEnviarRespostaPar = document.getElementById('btnEnviarRespostaPar');
     const params = new URLSearchParams(window.location.search);
@@ -192,7 +203,21 @@
     let quantidadeRevisoesCardAtual = 0;
     const AUDIO_CARD_MAX_CHARS = 500;
     let audioCardAtual = null;
+    let audioCardEmReproducao = false;
+    let cacheAudioCardId = null;
+    let cacheAudioCardBase64 = '';
     let ptbrAtivo = true;
+
+    function setAudioPlaybackUiState(isPlaying) {
+      audioCardEmReproducao = isPlaying;
+      iconeReproduzirAudioCardEnGb.textContent = isPlaying ? '⏸' : '▶';
+      textoReproduzirAudioCardEnGb.textContent = isPlaying ? 'Pausar áudio' : 'Play áudio';
+    }
+
+    function limparCacheAudioCard() {
+      cacheAudioCardId = null;
+      cacheAudioCardBase64 = '';
+    }
 
     async function carregarPreferenciaPtBr() {
       const response = await fetch('api/usuario.php', { cache: 'no-store' });
@@ -214,6 +239,7 @@
 
     function resetCurrentAudioPlayer() {
       if (!audioCardAtual) {
+        setAudioPlaybackUiState(false);
         return;
       }
       audioCardAtual.pause();
@@ -221,6 +247,7 @@
       audioCardAtual.removeAttribute('src');
       audioCardAtual.load();
       audioCardAtual = null;
+      setAudioPlaybackUiState(false);
     }
 
     function updateAudioButtonsState() {
@@ -228,7 +255,7 @@
       btnGerarAudioCardEnGb.disabled = !hasCard;
       btnGerarAudioCardEnGb.classList.toggle('opacity-50', !hasCard);
       btnGerarAudioCardEnGb.classList.toggle('cursor-not-allowed', !hasCard);
-
+      btnReproduzirAudioCardEnGb.disabled = !hasCard;
     }
 
     function renderTextoCard(card = null) {
@@ -346,8 +373,10 @@
         idCardAtual = Number.parseInt(result.card.id, 10);
         quantidadeRevisoesCardAtual = 0;
         incrementarContadorCardsCriados();
+        limparCacheAudioCard();
         resetCurrentAudioPlayer();
         updateAudioButtonsState();
+        await tentarAutoPlayCardAtual();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao criar card.');
       } finally {
@@ -571,6 +600,7 @@
         if (!result.card) {
           idCardAtual = null;
           quantidadeRevisoesCardAtual = 0;
+          limparCacheAudioCard();
           resetCurrentAudioPlayer();
           textoCard.textContent = 'Nenhum card disponível para expansão foi encontrado.';
           tituloExpansions.textContent = '--';
@@ -580,12 +610,15 @@
 
         idCardAtual = Number.parseInt(result.card.id, 10);
         quantidadeRevisoesCardAtual = Number.parseInt(result.card.revisao_quantidade_max || '0', 10) || 0;
+        limparCacheAudioCard();
         resetCurrentAudioPlayer();
         renderTextoCard(result.card);
         updateAudioButtonsState();
+        await tentarAutoPlayCardAtual();
       } catch (error) {
         idCardAtual = null;
         quantidadeRevisoesCardAtual = 0;
+        limparCacheAudioCard();
         resetCurrentAudioPlayer();
         showFeedback(error.message || 'Erro inesperado ao carregar card.');
         textoCard.textContent = 'Erro ao carregar o card.';
@@ -601,6 +634,9 @@
       }
       if (textoAtual.length > AUDIO_CARD_MAX_CHARS) {
         throw new Error(`Texto muito longo para áudio (${textoAtual.length} caracteres). Limite: ${AUDIO_CARD_MAX_CHARS}.`);
+      }
+      if (cacheAudioCardId === idCardAtual && cacheAudioCardBase64) {
+        return cacheAudioCardBase64;
       }
 
       const response = await fetch('api/pares.php', {
@@ -624,7 +660,10 @@
         throw new Error(result.message || 'Não foi possível gerar áudio para o card.');
       }
 
-      return (result.card?.audio_engb || result.card?.audio || '').trim();
+      const audioBase64 = (result.card?.audio_engb || result.card?.audio || '').trim();
+      cacheAudioCardId = idCardAtual;
+      cacheAudioCardBase64 = audioBase64;
+      return audioBase64;
     }
 
     async function playAudioBase64(audioBase64) {
@@ -635,15 +674,46 @@
       resetCurrentAudioPlayer();
 
       const audioDataUrl = `data:audio/mpeg;base64,${audioBase64}`;
+      audioCardAtual = new Audio();
+      audioCardAtual.preload = 'metadata';
+      audioCardAtual.src = audioDataUrl;
+      audioCardAtual.onended = () => setAudioPlaybackUiState(false);
+      audioCardAtual.onpause = () => {
+        if (audioCardAtual && audioCardAtual.currentTime < audioCardAtual.duration) {
+          setAudioPlaybackUiState(false);
+        }
+      };
+      audioCardAtual.onerror = () => setAudioPlaybackUiState(false);
+      setAudioPlaybackUiState(true);
+      try {
+        await audioCardAtual.play();
+      } catch (error) {
+        setAudioPlaybackUiState(false);
+        throw new Error('Não foi possível iniciar a reprodução de áudio.');
+      }
+    }
 
-      await new Promise((resolve, reject) => {
-        audioCardAtual = new Audio();
-        audioCardAtual.preload = 'metadata';
-        audioCardAtual.src = audioDataUrl;
-        audioCardAtual.onended = () => resolve();
-        audioCardAtual.onerror = () => reject(new Error('Erro ao reproduzir áudio.'));
-        audioCardAtual.play().catch(() => reject(new Error('Não foi possível iniciar a reprodução de áudio.')));
-      });
+    async function playCurrentCardAudio() {
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        throw new Error('Nenhum card ativo disponível para reproduzir áudio.');
+      }
+      const audioBase64 = await ensureCardAudioEnGbBase64();
+      await playAudioBase64(audioBase64);
+    }
+
+    function pauseCurrentCardAudio() {
+      if (!audioCardAtual) {
+        return;
+      }
+      audioCardAtual.pause();
+      audioCardAtual.currentTime = 0;
+      setAudioPlaybackUiState(false);
+    }
+
+    async function tentarAutoPlayCardAtual() {
+      try {
+        await playCurrentCardAudio();
+      } catch (_error) {}
     }
 
     btnGerarAudioCardEnGb.addEventListener('click', async () => {
@@ -657,13 +727,26 @@
       btnGerarAudioCardEnGb.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        const audioBase64 = await ensureCardAudioEnGbBase64();
-        await playAudioBase64(audioBase64);
+        await playCurrentCardAudio();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio en-GB.');
       } finally {
         btnGerarAudioCardEnGb.disabled = false;
         btnGerarAudioCardEnGb.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }, { signal });
+
+    btnReproduzirAudioCardEnGb.addEventListener('click', async () => {
+      if (audioCardEmReproducao) {
+        pauseCurrentCardAudio();
+        return;
+      }
+
+      hideFeedback();
+      try {
+        await playCurrentCardAudio();
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao reproduzir áudio do card.');
       }
     }, { signal });
 
