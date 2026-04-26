@@ -558,7 +558,7 @@ try {
                 $params['id_card_excluir'] = $idCardExcluir;
             }
 
-            $query .= ' ORDER BY c.id ASC LIMIT 1';
+            $query .= ' ORDER BY c.expansions DESC, c.proxima_expansion ASC, c.id ASC LIMIT 1';
 
             $stmt = $pdo->prepare($query);
             $stmt->execute($params);
