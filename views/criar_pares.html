@@ -21,6 +21,13 @@
     </div>
     <div class="flex items-center gap-2">
       <button
+        id="btnEditarCard"
+        type="button"
+        class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        Editar
+      </button>
+      <button
         id="btnGerarAudioCardEnGb"
         type="button"
         class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
@@ -164,6 +171,66 @@
       </form>
     </div>
   </div>
+
+  <div id="modalEditarCard" class="fixed inset-0 z-20 hidden items-center justify-center bg-slate-950/70 p-4">
+    <div class="w-full max-w-lg rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+      <div class="mb-4 flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-white">Editar card</h2>
+        <button
+          id="btnFecharModalEditarCard"
+          type="button"
+          class="rounded-md border border-slate-700 px-2 py-1 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white"
+        >
+          Fechar
+        </button>
+      </div>
+
+      <form id="formEditarCard" class="space-y-4">
+        <div>
+          <label for="textoEditarCardEnGb" class="mb-1 block text-sm text-slate-200">Texto (en-GB)</label>
+          <textarea
+            id="textoEditarCardEnGb"
+            name="texto_engb"
+            required
+            rows="4"
+            maxlength="1500"
+            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
+            placeholder="Digite o conteúdo em inglês britânico"
+          ></textarea>
+        </div>
+
+        <div id="containerEditarCardPtBr">
+          <label for="textoEditarCardPtBr" class="mb-1 block text-sm text-slate-200">Texto (pt-BR)</label>
+          <textarea
+            id="textoEditarCardPtBr"
+            name="texto_ptbr"
+            required
+            rows="4"
+            maxlength="1500"
+            class="w-full rounded-lg border border-emerald-500/60 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-400"
+            placeholder="Digite o conteúdo em português brasileiro"
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button
+            id="btnCancelarEditarCard"
+            type="button"
+            class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+          >
+            Cancelar
+          </button>
+          <button
+            id="btnSalvarEditarCard"
+            type="submit"
+            class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-500"
+          >
+            Salvar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </section>
 
 <script>
@@ -172,15 +239,24 @@
     const { signal } = viewLifecycleController;
     const btnVoltar = document.getElementById('btnVoltarCriarPares');
     const btnNovoCard = document.getElementById('btnNovoCard');
+    const btnEditarCard = document.getElementById('btnEditarCard');
     const modalNovoCard = document.getElementById('modalNovoCard');
+    const modalEditarCard = document.getElementById('modalEditarCard');
     const btnFecharModalNovoCard = document.getElementById('btnFecharModalNovoCard');
+    const btnFecharModalEditarCard = document.getElementById('btnFecharModalEditarCard');
     const btnCancelarNovoCard = document.getElementById('btnCancelarNovoCard');
+    const btnCancelarEditarCard = document.getElementById('btnCancelarEditarCard');
     const formNovoCard = document.getElementById('formNovoCard');
+    const formEditarCard = document.getElementById('formEditarCard');
     const textoNovoCardEnGb = document.getElementById('textoNovoCardEnGb');
     const textoNovoCardPtBr = document.getElementById('textoNovoCardPtBr');
+    const textoEditarCardEnGb = document.getElementById('textoEditarCardEnGb');
+    const textoEditarCardPtBr = document.getElementById('textoEditarCardPtBr');
     const containerNovoCardPtBr = document.getElementById('containerNovoCardPtBr');
+    const containerEditarCardPtBr = document.getElementById('containerEditarCardPtBr');
     const btnTraduzirNovoCard = document.getElementById('btnTraduzirNovoCard');
     const btnSalvarNovoCard = document.getElementById('btnSalvarNovoCard');
+    const btnSalvarEditarCard = document.getElementById('btnSalvarEditarCard');
     const textoCard = document.getElementById('textoCardCriarPares');
     const textoCardPtBr = document.getElementById('textoCardPtBrCriarPares');
     const tituloExpansions = document.getElementById('tituloExpansionsCriarPares');
@@ -231,9 +307,11 @@
       }
       ptbrAtivo = Boolean(result.ptbr_ativo);
       containerNovoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+      containerEditarCardPtBr.classList.toggle('hidden', !ptbrAtivo);
       containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
       textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
       textoNovoCardPtBr.required = ptbrAtivo;
+      textoEditarCardPtBr.required = ptbrAtivo;
       textoRespostaParPtBr.required = ptbrAtivo;
     }
 
@@ -255,6 +333,7 @@
       btnGerarAudioCardEnGb.disabled = !hasCard;
       btnGerarAudioCardEnGb.classList.toggle('opacity-50', !hasCard);
       btnGerarAudioCardEnGb.classList.toggle('cursor-not-allowed', !hasCard);
+      btnEditarCard.disabled = !hasCard;
       btnReproduzirAudioCardEnGb.disabled = !hasCard;
     }
 
@@ -303,6 +382,25 @@
       formNovoCard.reset();
     }
 
+    function openModalEditarCard() {
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        showFeedback('Nenhum card ativo para editar.');
+        return;
+      }
+
+      textoEditarCardEnGb.value = (textoCard.textContent || '').trim();
+      textoEditarCardPtBr.value = (textoCardPtBr.textContent || '').trim();
+      modalEditarCard.classList.remove('hidden');
+      modalEditarCard.classList.add('flex');
+      textoEditarCardEnGb.focus();
+    }
+
+    function closeModalEditarCard() {
+      modalEditarCard.classList.add('hidden');
+      modalEditarCard.classList.remove('flex');
+      formEditarCard.reset();
+    }
+
     btnVoltar.addEventListener('click', () => {
       const nextParams = new URLSearchParams(window.location.search);
       nextParams.set('view', 'biblioteca');
@@ -315,12 +413,21 @@
     }, { signal });
 
     btnNovoCard.addEventListener('click', openModalNovoCard, { signal });
+    btnEditarCard.addEventListener('click', openModalEditarCard, { signal });
     btnFecharModalNovoCard.addEventListener('click', closeModalNovoCard, { signal });
+    btnFecharModalEditarCard.addEventListener('click', closeModalEditarCard, { signal });
     btnCancelarNovoCard.addEventListener('click', closeModalNovoCard, { signal });
+    btnCancelarEditarCard.addEventListener('click', closeModalEditarCard, { signal });
 
     modalNovoCard.addEventListener('click', (event) => {
       if (event.target === modalNovoCard) {
         closeModalNovoCard();
+      }
+    }, { signal });
+
+    modalEditarCard.addEventListener('click', (event) => {
+      if (event.target === modalEditarCard) {
+        closeModalEditarCard();
       }
     }, { signal });
 
@@ -382,6 +489,63 @@
       } finally {
         btnSalvarNovoCard.disabled = false;
         btnSalvarNovoCard.textContent = 'Salvar';
+      }
+    }, { signal });
+
+    formEditarCard.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        showFeedback('Nenhum card ativo para editar.');
+        return;
+      }
+
+      const textoEnGb = textoEditarCardEnGb.value.trim();
+      const textoPtBr = textoEditarCardPtBr.value.trim();
+
+      if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
+        showFeedback('Preencha o texto en-GB e, com pt-BR ativo, também o texto pt-BR.');
+        return;
+      }
+
+      btnSalvarEditarCard.disabled = true;
+      btnSalvarEditarCard.textContent = 'Salvando...';
+
+      try {
+        const response = await fetch('api/pares.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'editar_card',
+            id_card: idCardAtual,
+            texto_engb: textoEnGb,
+            texto_ptbr: ptbrAtivo ? textoPtBr : '',
+          }),
+        });
+        const result = await response.json();
+
+        if (response.status === 401) {
+          window.location.href = 'index.html?view=login';
+          return;
+        }
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.message || 'Não foi possível editar o card.');
+        }
+
+        hideFeedback();
+        closeModalEditarCard();
+        renderTextoCard(result.card);
+        limparCacheAudioCard();
+        resetCurrentAudioPlayer();
+        updateAudioButtonsState();
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao editar card.');
+      } finally {
+        btnSalvarEditarCard.disabled = false;
+        btnSalvarEditarCard.textContent = 'Salvar';
       }
     }, { signal });
 
