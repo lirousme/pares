@@ -225,64 +225,8 @@ try {
 
     $diretorios = $stmt->fetchAll();
 
-    $arvoreStmt = $pdo->prepare('SELECT id, id_pai, tipo FROM diretorios WHERE id_usuario = :id_usuario');
-    $arvoreStmt->execute(['id_usuario' => $userId]);
-    $todosDiretorios = $arvoreStmt->fetchAll();
-
-    $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
-    $agoraFormatado = $agora->format('Y-m-d H:i:s');
-
-    $diretoriosTipoDoisIds = [];
-    $idParaPai = [];
-    foreach ($todosDiretorios as $diretorioArvore) {
-        $idDiretorio = (int) ($diretorioArvore['id'] ?? 0);
-        if ($idDiretorio <= 0) {
-            continue;
-        }
-
-        $idPaiDiretorio = $diretorioArvore['id_pai'];
-        $idParaPai[$idDiretorio] = $idPaiDiretorio === null ? null : (int) $idPaiDiretorio;
-
-        if ((int) ($diretorioArvore['tipo'] ?? 0) === 2) {
-            $diretoriosTipoDoisIds[] = $idDiretorio;
-        }
-    }
-
-    $diretoriosComRevisaoVencida = [];
-    if (count($diretoriosTipoDoisIds) > 0) {
-        $placeholders = implode(',', array_fill(0, count($diretoriosTipoDoisIds), '?'));
-        $revisoesStmt = $pdo->prepare(
-            "SELECT p.id_diretorio
-             FROM pares p
-             LEFT JOIN revisoes r ON r.id_par = p.id AND r.id_usuario = ?
-             WHERE p.id_diretorio IN ($placeholders)
-               AND (r.id IS NULL OR r.proxima_revisao <= ?)
-             GROUP BY p.id_diretorio"
-        );
-
-        $revisoesStmt->execute([
-            $userId,
-            ...$diretoriosTipoDoisIds,
-            $agoraFormatado,
-        ]);
-
-        foreach ($revisoesStmt->fetchAll() as $revisaoDiretorio) {
-            $idDiretorioVencido = (int) ($revisaoDiretorio['id_diretorio'] ?? 0);
-            if ($idDiretorioVencido <= 0) {
-                continue;
-            }
-
-            $idAtual = $idDiretorioVencido;
-            while ($idAtual !== null && $idAtual > 0 && !isset($diretoriosComRevisaoVencida[$idAtual])) {
-                $diretoriosComRevisaoVencida[$idAtual] = true;
-                $idAtual = $idParaPai[$idAtual] ?? null;
-            }
-        }
-    }
-
     foreach ($diretorios as &$diretorio) {
-        $idDiretorio = (int) ($diretorio['id'] ?? 0);
-        $diretorio['has_revisao_vencida'] = isset($diretoriosComRevisaoVencida[$idDiretorio]);
+        $diretorio['has_revisao_vencida'] = false;
     }
     unset($diretorio);
 

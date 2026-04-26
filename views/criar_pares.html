@@ -264,11 +264,10 @@
 
     btnVoltar.addEventListener('click', () => {
       const nextParams = new URLSearchParams(window.location.search);
-      nextParams.set('view', 'pares');
-      if (!Number.isNaN(idDiretorio) && idDiretorio > 0) {
-        nextParams.set('id_diretorio', String(idDiretorio));
-      }
+      nextParams.set('view', 'biblioteca');
       nextParams.delete('id_pai');
+      nextParams.delete('id_diretorio');
+      nextParams.delete('tipo_diretorio');
       const newUrl = `${window.location.pathname}?${nextParams.toString()}`;
       window.history.pushState({}, '', newUrl);
       window.dispatchEvent(new PopStateEvent('popstate'));
@@ -453,7 +452,7 @@
       }
 
       if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
-        showFeedback('Nenhum card ativo disponível para criar o par.');
+        showFeedback('Nenhum card ativo disponível para criar um novo card relacionado.');
         return;
       }
 
@@ -474,9 +473,9 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action: 'criar_par_por_texto',
+            action: 'criar_card_relacionado',
             id_diretorio: idDiretorio,
-            id_card_um: idCardAtual,
+            id_card_base: idCardAtual,
             texto_engb: textoEnGb,
             texto_ptbr: ptbrAtivo ? textoPtBr : '',
           }),
@@ -492,7 +491,7 @@
           const detail = typeof result.detail === 'string' && result.detail.trim()
             ? ` Detalhe: ${result.detail.trim()}`
             : '';
-          throw new Error(`${result.message || 'Não foi possível criar o par.'}${detail}`);
+          throw new Error(`${result.message || 'Não foi possível criar o card relacionado.'}${detail}`);
         }
 
         hideFeedback();
@@ -502,12 +501,12 @@
         if (ptbrAtivo) {
           resizeTextarea(textoRespostaParPtBr);
         }
-        showFeedback(`Par criado com sucesso! Card ${result.pair.id_card_dois} vinculado ao card ${result.pair.id_card_um}. Expansão atual: ${result.pair.expansions}.`);
+        showFeedback(`Card criado com sucesso! Card ${result.card.id} vinculado ao card base ${result.base_card.id}. Expansão atual: ${result.base_card.expansions}.`);
         await loadCardMaisAntigo();
         feedbackCriarPares.classList.remove('border-rose-500/40', 'bg-rose-500/10', 'text-rose-200');
         feedbackCriarPares.classList.add('border-emerald-500/40', 'bg-emerald-500/10', 'text-emerald-200');
       } catch (error) {
-        showFeedback(error.message || 'Erro inesperado ao criar par.');
+        showFeedback(error.message || 'Erro inesperado ao criar card relacionado.');
       } finally {
         btnEnviarRespostaPar.disabled = false;
         btnEnviarRespostaPar.textContent = 'Enviar';
