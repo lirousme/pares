@@ -549,7 +549,8 @@ try {
                   AND c.expansions < 7';
             $params = [
                 'id_diretorio' => $idDiretorio,
-                'agora' => $agoraFormatado,
+                'agora_prioridade' => $agoraFormatado,
+                'agora_desempate' => $agoraFormatado,
             ];
 
             if ($idCardExcluir !== null) {
@@ -558,9 +559,9 @@ try {
             }
 
             $query .= ' ORDER BY
-                CASE WHEN c.proxima_expansion <= :agora THEN 1 ELSE 0 END DESC,
+                CASE WHEN c.proxima_expansion <= :agora_prioridade THEN 1 ELSE 0 END DESC,
                 c.expansions DESC,
-                CASE WHEN c.proxima_expansion <= :agora THEN c.proxima_expansion END ASC,
+                CASE WHEN c.proxima_expansion <= :agora_desempate THEN c.proxima_expansion END ASC,
                 c.id ASC
                 LIMIT 1';
 
