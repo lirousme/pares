@@ -546,8 +546,7 @@ try {
                     0 AS revisao_quantidade_max
                 FROM cards c
                 WHERE c.id_diretorio = :id_diretorio
-                  AND c.expansions < 7
-                  AND c.proxima_expansion <= :agora';
+                  AND c.expansions < 7';
             $params = [
                 'id_diretorio' => $idDiretorio,
                 'agora' => $agoraFormatado,
@@ -558,7 +557,12 @@ try {
                 $params['id_card_excluir'] = $idCardExcluir;
             }
 
-            $query .= ' ORDER BY c.expansions DESC, c.proxima_expansion ASC, c.id ASC LIMIT 1';
+            $query .= ' ORDER BY
+                CASE WHEN c.proxima_expansion <= :agora THEN 1 ELSE 0 END DESC,
+                c.expansions DESC,
+                CASE WHEN c.proxima_expansion <= :agora THEN c.proxima_expansion END ASC,
+                c.id ASC
+                LIMIT 1';
 
             $stmt = $pdo->prepare($query);
             $stmt->execute($params);
