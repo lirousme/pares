@@ -532,7 +532,21 @@ try {
             $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
             $agoraFormatado = $agora->format('Y-m-d H:i:s');
 
-            $baseSelect = 'SELECT
+            $params = [
+                'id_diretorio_1' => $idDiretorio,
+                'id_diretorio_2' => $idDiretorio,
+                'agora_prioridade_1' => $agoraFormatado,
+                'agora_prioridade_2' => $agoraFormatado,
+            ];
+
+            $extraFiltro = '';
+            if ($idCardExcluir !== null) {
+                $extraFiltro = ' AND c.id <> :id_card_excluir_%d';
+                $params['id_card_excluir_1'] = $idCardExcluir;
+                $params['id_card_excluir_2'] = $idCardExcluir;
+            }
+
+            $query = '(SELECT
                     c.id,
                     c.texto_engb AS texto,
                     c.texto_engb,
@@ -545,29 +559,33 @@ try {
                     c.proxima_expansion,
                     0 AS revisao_quantidade_max
                 FROM cards c
-                WHERE c.id_diretorio = :id_diretorio
-                  AND c.expansions < 7';
-            $params = [
-                'id_diretorio' => $idDiretorio,
-                'agora_prioridade' => $agoraFormatado,
-            ];
-
-            $extraFiltro = '';
-            if ($idCardExcluir !== null) {
-                $extraFiltro = ' AND c.id <> :id_card_excluir';
-                $params['id_card_excluir'] = $idCardExcluir;
-            }
-
-            $query = '(' . $baseSelect . $extraFiltro . '
-                  AND c.proxima_expansion <= :agora_prioridade
+                WHERE c.id_diretorio = :id_diretorio_1
+                  AND c.expansions < 7' .
+                ($idCardExcluir !== null ? sprintf($extraFiltro, 1) : '') . '
+                  AND c.proxima_expansion <= :agora_prioridade_1
                 ORDER BY
                     c.expansions DESC,
                     c.proxima_expansion ASC,
                     c.id ASC
                 LIMIT 1)
                 UNION ALL
-                (' . $baseSelect . $extraFiltro . '
-                  AND (c.proxima_expansion > :agora_prioridade OR c.proxima_expansion IS NULL)
+                (SELECT
+                    c.id,
+                    c.texto_engb AS texto,
+                    c.texto_engb,
+                    c.texto_ptbr,
+                    c.ok,
+                    c.audio_engb AS audio,
+                    c.audio_engb,
+                    c.audio_ptbr,
+                    c.expansions,
+                    c.proxima_expansion,
+                    0 AS revisao_quantidade_max
+                FROM cards c
+                WHERE c.id_diretorio = :id_diretorio_2
+                  AND c.expansions < 7' .
+                ($idCardExcluir !== null ? sprintf($extraFiltro, 2) : '') . '
+                  AND (c.proxima_expansion > :agora_prioridade_2 OR c.proxima_expansion IS NULL)
                 ORDER BY
                     c.expansions DESC,
                     c.proxima_expansion ASC,
