@@ -187,9 +187,8 @@
     let idCardAtual = null;
     let okCardAtual = null;
     let quantidadeRevisoesCardAtual = 0;
-    let audioCardAtualEnGbBase64 = '';
+    const AUDIO_CARD_MAX_CHARS = 500;
     let audioCardAtual = null;
-    let audioCardAtualObjectUrl = null;
     let ptbrAtivo = true;
 
     async function carregarPreferenciaPtBr() {
@@ -212,20 +211,13 @@
 
     function resetCurrentAudioPlayer() {
       if (!audioCardAtual) {
-        if (audioCardAtualObjectUrl) {
-          URL.revokeObjectURL(audioCardAtualObjectUrl);
-          audioCardAtualObjectUrl = null;
-        }
         return;
       }
       audioCardAtual.pause();
       audioCardAtual.currentTime = 0;
-      audioCardAtual.src = '';
+      audioCardAtual.removeAttribute('src');
+      audioCardAtual.load();
       audioCardAtual = null;
-      if (audioCardAtualObjectUrl) {
-        URL.revokeObjectURL(audioCardAtualObjectUrl);
-        audioCardAtualObjectUrl = null;
-      }
     }
 
     function updateAudioButtonsState() {
@@ -345,7 +337,6 @@
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
         quantidadeRevisoesCardAtual = 0;
-        audioCardAtualEnGbBase64 = '';
         resetCurrentAudioPlayer();
         btnToggleOkCriarPares.classList.remove('hidden');
         btnToggleOkCriarPares.textContent = `ok: ${okCardAtual}`;
@@ -573,7 +564,6 @@
           idCardAtual = null;
           okCardAtual = null;
           quantidadeRevisoesCardAtual = 0;
-          audioCardAtualEnGbBase64 = '';
           resetCurrentAudioPlayer();
           textoCard.textContent = 'Nenhum card disponível para expansão foi encontrado.';
           metaCard.textContent = `Diretório ${idDiretorio}`;
@@ -585,7 +575,6 @@
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
         quantidadeRevisoesCardAtual = Number.parseInt(result.card.revisao_quantidade_max || '0', 10) || 0;
-        audioCardAtualEnGbBase64 = '';
         resetCurrentAudioPlayer();
         renderTextoCard(result.card);
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
@@ -596,7 +585,6 @@
         idCardAtual = null;
         okCardAtual = null;
         quantidadeRevisoesCardAtual = 0;
-        audioCardAtualEnGbBase64 = '';
         resetCurrentAudioPlayer();
         showFeedback(error.message || 'Erro inesperado ao carregar card.');
         textoCard.textContent = 'Erro ao carregar o card.';
@@ -606,9 +594,13 @@
       }
     }
 
-    async function ensureCardAudios() {
-      if (audioCardAtualEnGbBase64) {
-        return;
+    async function ensureCardAudioEnGbBase64() {
+      const textoAtual = (textoCard.textContent || '').trim();
+      if (!textoAtual) {
+        throw new Error('Card sem texto disponível para gerar áudio.');
+      }
+      if (textoAtual.length > AUDIO_CARD_MAX_CHARS) {
+        throw new Error(`Texto muito longo para áudio (${textoAtual.length} caracteres). Limite: ${AUDIO_CARD_MAX_CHARS}.`);
       }
 
       const response = await fetch('api/pares.php', {
@@ -632,7 +624,7 @@
         throw new Error(result.message || 'Não foi possível gerar áudio para o card.');
       }
 
-      audioCardAtualEnGbBase64 = (result.card?.audio_engb || result.card?.audio || '').trim();
+      return (result.card?.audio_engb || result.card?.audio || '').trim();
     }
 
     async function playAudioBase64(audioBase64) {
@@ -642,15 +634,12 @@
 
       resetCurrentAudioPlayer();
 
-      const binary = atob(audioBase64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i += 1) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      audioCardAtualObjectUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
+      const audioDataUrl = `data:audio/mpeg;base64,${audioBase64}`;
 
       await new Promise((resolve, reject) => {
-        audioCardAtual = new Audio(audioCardAtualObjectUrl);
+        audioCardAtual = new Audio();
+        audioCardAtual.preload = 'metadata';
+        audioCardAtual.src = audioDataUrl;
         audioCardAtual.onended = () => resolve();
         audioCardAtual.onerror = () => reject(new Error('Erro ao reproduzir áudio.'));
         audioCardAtual.play().catch(() => reject(new Error('Não foi possível iniciar a reprodução de áudio.')));
@@ -668,9 +657,8 @@
       btnGerarAudioCardEnGb.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        await ensureCardAudios();
-        await playAudioBase64(audioCardAtualEnGbBase64);
-        audioCardAtualEnGbBase64 = '';
+        const audioBase64 = await ensureCardAudioEnGbBase64();
+        await playAudioBase64(audioBase64);
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio en-GB.');
       } finally {
@@ -728,7 +716,6 @@
 
     document.addEventListener('view:before-unload', () => {
       resetCurrentAudioPlayer();
-      audioCardAtualEnGbBase64 = '';
       viewLifecycleController.abort();
     }, { once: true, signal });
 
