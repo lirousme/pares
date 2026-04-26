@@ -52,17 +52,19 @@
         return;
       }
 
-      if (viewName === 'pares') {
-        app.className = 'mx-auto flex min-h-[100dvh] w-full max-w-5xl items-stretch justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]';
-        return;
-      }
-
       app.className = 'mx-auto flex min-h-[100dvh] w-full max-w-5xl items-start justify-center px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:py-8';
     }
 
     function getViewName() {
       const params = new URLSearchParams(window.location.search);
-      return params.get('view') || 'login';
+      const view = params.get('view') || 'login';
+      if (view === 'pares') {
+        params.set('view', 'criar_pares');
+        const newUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState({}, '', newUrl);
+        return 'criar_pares';
+      }
+      return view;
     }
 
     async function renderView() {

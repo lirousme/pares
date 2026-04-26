@@ -49,7 +49,7 @@
         <label for="selectTipo" class="mb-1 block text-sm text-slate-300">Tipo</label>
         <select id="selectTipo" name="tipo" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500">
           <option value="1">Tipo 1 - Diretório</option>
-          <option value="2">Tipo 2 - Pares</option>
+          <option value="2">Tipo 2 - Cards</option>
         </select>
       </div>
 
@@ -185,25 +185,16 @@
       button.type = 'button';
       button.className = 'relative block w-full rounded-xl border border-slate-700 bg-slate-950 p-4 pr-14 text-left transition hover:border-brand-500/60 hover:bg-slate-900';
       const tipo = Number.parseInt(diretorio.tipo, 10);
-      const tipoLabel = tipo === 2 ? 'Pares' : 'Diretório';
-      const hasRevisaoVencida = Boolean(diretorio.has_revisao_vencida);
+      const tipoLabel = tipo === 2 ? 'Cards' : 'Diretório';
       button.innerHTML = `
         <p class="text-base font-semibold text-white">${diretorio.nome}</p>
         <p class="mt-1 text-xs text-slate-400">ID: ${diretorio.id} • Tipo: ${tipoLabel}</p>
       `;
 
-      if (hasRevisaoVencida) {
-        const indicator = document.createElement('span');
-        indicator.className = 'absolute right-12 top-4 inline-block h-3 w-3 rounded-full bg-rose-500';
-        indicator.setAttribute('aria-label', 'Revisão vencida pendente');
-        indicator.title = 'Há revisão vencida pendente neste diretório ou em subdiretórios';
-        button.appendChild(indicator);
-      }
-
       button.addEventListener('click', () => {
         if (tipo === 2) {
           const params = new URLSearchParams(window.location.search);
-          params.set('view', 'pares');
+          params.set('view', 'criar_pares');
           params.set('id_diretorio', String(diretorio.id));
           params.set('tipo_diretorio', String(tipo));
           params.delete('id_pai');

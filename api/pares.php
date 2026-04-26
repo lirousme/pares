@@ -543,16 +543,13 @@ try {
                     c.audio_ptbr,
                     c.expansions,
                     c.proxima_expansion,
-                    COALESCE(MAX(r.quantidade), 0) AS revisao_quantidade_max
+                    0 AS revisao_quantidade_max
                 FROM cards c
-                LEFT JOIN pares p ON (p.id_card_um = c.id OR p.id_card_dois = c.id)
-                LEFT JOIN revisoes r ON r.id_par = p.id AND r.id_usuario = :id_usuario
                 WHERE c.id_diretorio = :id_diretorio
                   AND c.expansions < 7
                   AND c.proxima_expansion <= :agora';
             $params = [
                 'id_diretorio' => $idDiretorio,
-                'id_usuario' => $userId,
                 'agora' => $agoraFormatado,
             ];
 
@@ -561,7 +558,7 @@ try {
                 $params['id_card_excluir'] = $idCardExcluir;
             }
 
-            $query .= ' GROUP BY c.id ORDER BY c.id ASC LIMIT 1';
+            $query .= ' ORDER BY c.id ASC LIMIT 1';
 
             $stmt = $pdo->prepare($query);
             $stmt->execute($params);
@@ -587,77 +584,7 @@ try {
             ]);
         }
 
-        $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
-        $agoraFormatado = $agora->format('Y-m-d H:i:s');
-
-        $stmt = $pdo->prepare(
-            'SELECT
-                p.id,
-                p.id_card_um,
-                p.id_card_dois,
-                p.id_diretorio,
-                c1.texto_engb AS card_um_texto,
-                c2.texto_engb AS card_dois_texto,
-                c1.texto_ptbr AS card_um_texto_ptbr,
-                c2.texto_ptbr AS card_dois_texto_ptbr,
-                c1.audio_engb AS card_um_audio,
-                c2.audio_engb AS card_dois_audio,
-                c1.audio_ptbr AS card_um_audio_ptbr,
-                c2.audio_ptbr AS card_dois_audio_ptbr,
-                c1.ok AS card_um_ok,
-                c2.ok AS card_dois_ok,
-                r.quantidade AS revisao_quantidade,
-                r.proxima_revisao
-            FROM pares p
-            LEFT JOIN cards c1 ON c1.id = p.id_card_um
-            LEFT JOIN cards c2 ON c2.id = p.id_card_dois
-            LEFT JOIN revisoes r ON r.id_par = p.id AND r.id_usuario = :id_usuario
-            WHERE p.id_diretorio = :id_diretorio
-                AND (r.id IS NULL OR r.proxima_revisao <= :agora)
-            ORDER BY COALESCE(r.proxima_revisao, \'1970-01-01 00:00:00\') ASC, p.id ASC'
-        );
-        $stmt->execute([
-            'id_diretorio' => $idDiretorio,
-            'id_usuario' => $userId,
-            'agora' => $agoraFormatado,
-        ]);
-        $paresVencidos = reorderPairsByRevisionPriority($stmt->fetchAll());
-        if (!$ptbrAtivo) {
-            foreach ($paresVencidos as &$par) {
-                $par['card_um_texto_ptbr'] = '';
-                $par['card_dois_texto_ptbr'] = '';
-                $par['card_um_audio_ptbr'] = null;
-                $par['card_dois_audio_ptbr'] = null;
-            }
-            unset($par);
-        }
-
-        $nextReviewStmt = $pdo->prepare(
-            'SELECT
-                p.id,
-                r.proxima_revisao
-             FROM revisoes r
-             INNER JOIN pares p ON p.id = r.id_par
-             WHERE p.id_diretorio = :id_diretorio
-                AND r.id_usuario = :id_usuario
-                AND r.proxima_revisao > :agora
-             ORDER BY r.proxima_revisao ASC
-             LIMIT 1'
-        );
-        $nextReviewStmt->execute([
-            'id_diretorio' => $idDiretorio,
-            'id_usuario' => $userId,
-            'agora' => $agoraFormatado,
-        ]);
-        $proximaRevisao = $nextReviewStmt->fetch() ?: null;
-
-        respond(200, true, 'Pares carregados com sucesso.', [
-            'id_diretorio' => $idDiretorio,
-            'pares' => $paresVencidos,
-            'agora' => $agoraFormatado,
-            'proxima_revisao_mais_proxima' => $proximaRevisao,
-            'ptbr_ativo' => $ptbrAtivo,
-        ]);
+        respond(410, false, 'A revisão de pares foi removida. Use apenas o fluxo de criação de cards.');
     }
 
     if ($method === 'POST') {
@@ -863,9 +790,9 @@ try {
             ]);
         }
 
-        if ($action === 'criar_par_por_texto') {
+        if ($action === 'criar_card_relacionado' || $action === 'criar_par_por_texto') {
             $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
-            $idCardUm = parsePositiveInt($payload['id_card_um'] ?? null, 'ID do card base');
+            $idCardUm = parsePositiveInt($payload['id_card_base'] ?? $payload['id_card_um'] ?? null, 'ID do card base');
             $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
             $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
@@ -976,25 +903,11 @@ try {
                 'id_card' => $idCardUm,
             ]);
 
-            $insertPair = $pdo->prepare(
-                'INSERT INTO pares (id_card_um, id_card_dois, id_diretorio)
-                 VALUES (:id_card_um, :id_card_dois, :id_diretorio)'
-            );
-            $insertPair->execute([
-                'id_card_um' => $idCardUm,
-                'id_card_dois' => $idCardDois,
-                'id_diretorio' => $idDiretorio,
-            ]);
-
-            $idPar = (int) $pdo->lastInsertId();
             $pdo->commit();
 
-            respond(201, true, 'Par criado com sucesso.', [
-                'pair' => [
-                    'id' => $idPar,
-                    'id_card_um' => $idCardUm,
-                    'id_card_dois' => $idCardDois,
-                    'id_diretorio' => $idDiretorio,
+            respond(201, true, 'Card relacionado criado com sucesso.', [
+                'base_card' => [
+                    'id' => $idCardUm,
                     'expansions' => $expansionsNovo,
                     'proxima_expansion' => $proximaExpansion,
                 ],
@@ -1068,81 +981,7 @@ try {
             ]);
         }
 
-        if ($action !== 'concluir_revisao') {
-            respond(422, false, 'Ação inválida.');
-        }
-
-        $idPar = parsePositiveInt($payload['id_par'] ?? null, 'ID do par');
-
-        $checkPair = $pdo->prepare(
-            'SELECT p.id
-             FROM pares p
-             INNER JOIN diretorios d ON d.id = p.id_diretorio
-             WHERE p.id = :id_par AND d.id_usuario = :id_usuario
-             LIMIT 1'
-        );
-        $checkPair->execute([
-            'id_par' => $idPar,
-            'id_usuario' => $userId,
-        ]);
-
-        if (!$checkPair->fetch()) {
-            respond(404, false, 'Par não encontrado.');
-        }
-
-        $pdo->beginTransaction();
-
-        $selectReview = $pdo->prepare(
-            'SELECT id, quantidade
-             FROM revisoes
-             WHERE id_par = :id_par AND id_usuario = :id_usuario
-             LIMIT 1
-             FOR UPDATE'
-        );
-        $selectReview->execute([
-            'id_par' => $idPar,
-            'id_usuario' => $userId,
-        ]);
-        $review = $selectReview->fetch();
-
-        $quantidadeAtual = $review ? (int) $review['quantidade'] : 0;
-        $novaQuantidade = $quantidadeAtual + 1;
-
-        $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
-        $proximaRevisao = $agora->add(new DateInterval(sprintf('P%dD', $novaQuantidade)));
-        $proximaRevisaoFormatada = $proximaRevisao->format('Y-m-d H:i:s');
-
-        if ($review) {
-            $updateReview = $pdo->prepare(
-                'UPDATE revisoes
-                 SET quantidade = :quantidade, proxima_revisao = :proxima_revisao
-                 WHERE id = :id'
-            );
-            $updateReview->execute([
-                'quantidade' => $novaQuantidade,
-                'proxima_revisao' => $proximaRevisaoFormatada,
-                'id' => (int) $review['id'],
-            ]);
-        } else {
-            $insertReview = $pdo->prepare(
-                'INSERT INTO revisoes (id_par, id_usuario, quantidade, proxima_revisao)
-                 VALUES (:id_par, :id_usuario, :quantidade, :proxima_revisao)'
-            );
-            $insertReview->execute([
-                'id_par' => $idPar,
-                'id_usuario' => $userId,
-                'quantidade' => $novaQuantidade,
-                'proxima_revisao' => $proximaRevisaoFormatada,
-            ]);
-        }
-
-        $pdo->commit();
-
-        respond(200, true, 'Revisão concluída com sucesso.', [
-            'id_par' => $idPar,
-            'quantidade' => $novaQuantidade,
-            'proxima_revisao' => $proximaRevisaoFormatada,
-        ]);
+        respond(422, false, 'Ação inválida.');
     }
 
     respond(405, false, 'Método não permitido.');
@@ -1154,23 +993,6 @@ try {
     $detail = 'Erro interno no servidor.';
     if ($e->getMessage() !== '') {
         $detail = $e->getMessage();
-    }
-
-    if ($e instanceof PDOException) {
-        $sqlState = $e->getCode();
-        $mensagemErro = $e->getMessage();
-
-        if (
-            $sqlState === '23000'
-            && (
-                str_contains($mensagemErro, 'card_um_par')
-                || str_contains($mensagemErro, 'card_dois_par')
-            )
-        ) {
-            respond(500, false, 'Estrutura do banco inválida para criar pares.', [
-                'detail' => 'As FKs card_um_par/card_dois_par da tabela pares devem apontar para cards(id). Execute o script sql/fix_pares_foreign_keys.sql no banco.',
-            ]);
-        }
     }
 
     respond(500, false, 'Erro interno no servidor.', [
