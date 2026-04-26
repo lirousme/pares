@@ -189,6 +189,7 @@
     let quantidadeRevisoesCardAtual = 0;
     let audioCardAtualEnGbBase64 = '';
     let audioCardAtual = null;
+    let audioCardAtualObjectUrl = null;
     let ptbrAtivo = true;
 
     async function carregarPreferenciaPtBr() {
@@ -211,11 +212,20 @@
 
     function resetCurrentAudioPlayer() {
       if (!audioCardAtual) {
+        if (audioCardAtualObjectUrl) {
+          URL.revokeObjectURL(audioCardAtualObjectUrl);
+          audioCardAtualObjectUrl = null;
+        }
         return;
       }
       audioCardAtual.pause();
       audioCardAtual.currentTime = 0;
+      audioCardAtual.src = '';
       audioCardAtual = null;
+      if (audioCardAtualObjectUrl) {
+        URL.revokeObjectURL(audioCardAtualObjectUrl);
+        audioCardAtualObjectUrl = null;
+      }
     }
 
     function updateAudioButtonsState() {
@@ -575,7 +585,7 @@
         idCardAtual = Number.parseInt(result.card.id, 10);
         okCardAtual = Number.parseInt(result.card.ok, 10);
         quantidadeRevisoesCardAtual = Number.parseInt(result.card.revisao_quantidade_max || '0', 10) || 0;
-        audioCardAtualEnGbBase64 = (result.card.audio_engb || result.card.audio || '').trim();
+        audioCardAtualEnGbBase64 = '';
         resetCurrentAudioPlayer();
         renderTextoCard(result.card);
         metaCard.textContent = `Card ID ${result.card.id} • Diretório ${idDiretorio}`;
@@ -632,8 +642,15 @@
 
       resetCurrentAudioPlayer();
 
+      const binary = atob(audioBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      audioCardAtualObjectUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
+
       await new Promise((resolve, reject) => {
-        audioCardAtual = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+        audioCardAtual = new Audio(audioCardAtualObjectUrl);
         audioCardAtual.onended = () => resolve();
         audioCardAtual.onerror = () => reject(new Error('Erro ao reproduzir áudio.'));
         audioCardAtual.play().catch(() => reject(new Error('Não foi possível iniciar a reprodução de áudio.')));
@@ -653,6 +670,7 @@
       try {
         await ensureCardAudios();
         await playAudioBase64(audioCardAtualEnGbBase64);
+        audioCardAtualEnGbBase64 = '';
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio en-GB.');
       } finally {

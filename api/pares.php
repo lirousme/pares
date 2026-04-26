@@ -552,9 +552,6 @@ try {
                     c.texto_engb,
                     c.texto_ptbr,
                     c.ok,
-                    c.audio_engb AS audio,
-                    c.audio_engb,
-                    c.audio_ptbr,
                     c.expansions,
                     c.proxima_expansion,
                     0 AS revisao_quantidade_max
@@ -575,9 +572,6 @@ try {
                     c.texto_engb,
                     c.texto_ptbr,
                     c.ok,
-                    c.audio_engb AS audio,
-                    c.audio_engb,
-                    c.audio_ptbr,
                     c.expansions,
                     c.proxima_expansion,
                     0 AS revisao_quantidade_max
@@ -725,7 +719,7 @@ try {
             $idCard = parsePositiveInt($payload['id_card'] ?? null, 'ID do card');
 
             $selectCard = $pdo->prepare(
-                'SELECT c.id, c.id_diretorio, c.texto_engb, c.texto_ptbr
+                'SELECT c.id, c.id_diretorio, c.texto_engb, c.texto_ptbr, c.audio_engb, c.audio_ptbr
                  FROM cards c
                  INNER JOIN diretorios d ON d.id = c.id_diretorio
                  WHERE c.id = :id_card AND d.id_usuario = :id_usuario
@@ -747,26 +741,34 @@ try {
                 respond(422, false, 'Card sem texto necessário para gerar áudio.');
             }
 
-            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
+            $audioEnGbExistente = trim((string) ($card['audio_engb'] ?? ''));
+            $audioPtBrExistente = trim((string) ($card['audio_ptbr'] ?? ''));
+            $deveGerarAudio = $audioEnGbExistente === '' || ($ptbrAtivo && $textoPtBr !== '' && $audioPtBrExistente === '');
 
-            $updateCard = $pdo->prepare(
-                'UPDATE cards
-                 SET audio_engb = :audio_engb, audio_ptbr = :audio_ptbr
-                 WHERE id = :id_card'
-            );
-            $updateCard->execute([
-                'audio_engb' => $audios['audio_engb'],
-                'audio_ptbr' => $audios['audio_ptbr'],
-                'id_card' => $idCard,
-            ]);
+            if ($deveGerarAudio) {
+                $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
+                $audioEnGbExistente = $audios['audio_engb'];
+                $audioPtBrExistente = $ptbrAtivo ? (string) ($audios['audio_ptbr'] ?? '') : '';
+
+                $updateCard = $pdo->prepare(
+                    'UPDATE cards
+                     SET audio_engb = :audio_engb, audio_ptbr = :audio_ptbr
+                     WHERE id = :id_card'
+                );
+                $updateCard->execute([
+                    'audio_engb' => $audioEnGbExistente,
+                    'audio_ptbr' => $ptbrAtivo ? ($audioPtBrExistente !== '' ? $audioPtBrExistente : null) : null,
+                    'id_card' => $idCard,
+                ]);
+            }
 
             respond(200, true, 'Áudio do card gerado com sucesso.', [
                 'card' => [
                     'id' => $idCard,
                     'id_diretorio' => (int) $card['id_diretorio'],
-                    'audio' => $audios['audio_engb'],
-                    'audio_engb' => $audios['audio_engb'],
-                    'audio_ptbr' => $ptbrAtivo ? $audios['audio_ptbr'] : null,
+                    'audio' => $audioEnGbExistente,
+                    'audio_engb' => $audioEnGbExistente,
+                    'audio_ptbr' => $ptbrAtivo && $audioPtBrExistente !== '' ? $audioPtBrExistente : null,
                 ],
             ]);
         }
@@ -965,9 +967,6 @@ try {
                     'texto' => $textoEnGb,
                     'texto_engb' => $textoEnGb,
                     'texto_ptbr' => $textoPtBr,
-                    'audio' => $audios['audio_engb'],
-                    'audio_engb' => $audios['audio_engb'],
-                    'audio_ptbr' => $ptbrAtivo ? $audios['audio_ptbr'] : null,
                 ],
             ]);
         }
@@ -1021,9 +1020,6 @@ try {
                     'texto' => $textoEnGb,
                     'texto_engb' => $textoEnGb,
                     'texto_ptbr' => $textoPtBr,
-                    'audio' => $audios['audio_engb'],
-                    'audio_engb' => $audios['audio_engb'],
-                    'audio_ptbr' => $ptbrAtivo ? $audios['audio_ptbr'] : null,
                     'ok' => 1,
                 ],
             ]);
