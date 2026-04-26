@@ -532,7 +532,7 @@ try {
             $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
             $agoraFormatado = $agora->format('Y-m-d H:i:s');
 
-            $query = 'SELECT
+            $baseSelect = 'SELECT
                     c.id,
                     c.texto_engb AS texto,
                     c.texto_engb,
@@ -550,19 +550,29 @@ try {
             $params = [
                 'id_diretorio' => $idDiretorio,
                 'agora_prioridade' => $agoraFormatado,
-                'agora_desempate' => $agoraFormatado,
             ];
 
+            $extraFiltro = '';
             if ($idCardExcluir !== null) {
-                $query .= ' AND c.id <> :id_card_excluir';
+                $extraFiltro = ' AND c.id <> :id_card_excluir';
                 $params['id_card_excluir'] = $idCardExcluir;
             }
 
-            $query .= ' ORDER BY
-                CASE WHEN c.proxima_expansion <= :agora_prioridade THEN 1 ELSE 0 END DESC,
-                c.expansions DESC,
-                CASE WHEN c.proxima_expansion <= :agora_desempate THEN c.proxima_expansion END ASC,
-                c.id ASC
+            $query = '(' . $baseSelect . $extraFiltro . '
+                  AND c.proxima_expansion <= :agora_prioridade
+                ORDER BY
+                    c.expansions DESC,
+                    c.proxima_expansion ASC,
+                    c.id ASC
+                LIMIT 1)
+                UNION ALL
+                (' . $baseSelect . $extraFiltro . '
+                  AND (c.proxima_expansion > :agora_prioridade OR c.proxima_expansion IS NULL)
+                ORDER BY
+                    c.expansions DESC,
+                    c.proxima_expansion ASC,
+                    c.id ASC
+                LIMIT 1)
                 LIMIT 1';
 
             $stmt = $pdo->prepare($query);
