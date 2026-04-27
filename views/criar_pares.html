@@ -58,6 +58,14 @@
     <div class="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 shadow-lg">
       <div class="mb-2 flex flex-wrap items-center justify-end gap-3">
         <button
+          id="btnRepetirAudioCardEnGb"
+          type="button"
+          class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span id="iconeRepetirAudioCardEnGb" aria-hidden="true">🔁</span>
+          <span id="textoRepetirAudioCardEnGb">Repetir áudio</span>
+        </button>
+        <button
           id="btnReproduzirAudioCardEnGb"
           type="button"
           class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
@@ -267,6 +275,9 @@
     const textoRespostaParEnGb = document.getElementById('textoRespostaParEnGb');
     const textoRespostaParPtBr = document.getElementById('textoRespostaParPtBr');
     const containerRespostaParPtBr = document.getElementById('containerRespostaParPtBr');
+    const btnRepetirAudioCardEnGb = document.getElementById('btnRepetirAudioCardEnGb');
+    const iconeRepetirAudioCardEnGb = document.getElementById('iconeRepetirAudioCardEnGb');
+    const textoRepetirAudioCardEnGb = document.getElementById('textoRepetirAudioCardEnGb');
     const btnReproduzirAudioCardEnGb = document.getElementById('btnReproduzirAudioCardEnGb');
     const iconeReproduzirAudioCardEnGb = document.getElementById('iconeReproduzirAudioCardEnGb');
     const textoReproduzirAudioCardEnGb = document.getElementById('textoReproduzirAudioCardEnGb');
@@ -280,6 +291,7 @@
     const AUDIO_CARD_MAX_CHARS = 500;
     let audioCardAtual = null;
     let audioCardEmReproducao = false;
+    let audioCardRepeticaoAtiva = false;
     let cacheAudioCardId = null;
     let cacheAudioCardBase64 = '';
     let ptbrAtivo = true;
@@ -288,6 +300,12 @@
       audioCardEmReproducao = isPlaying;
       iconeReproduzirAudioCardEnGb.textContent = isPlaying ? '⏸' : '▶';
       textoReproduzirAudioCardEnGb.textContent = isPlaying ? 'Pausar áudio' : 'Play áudio';
+    }
+
+    function setAudioLoopUiState(isLooping) {
+      audioCardRepeticaoAtiva = isLooping;
+      iconeRepetirAudioCardEnGb.textContent = isLooping ? '⏸' : '🔁';
+      textoRepetirAudioCardEnGb.textContent = isLooping ? 'Parar repetição' : 'Repetir áudio';
     }
 
     function limparCacheAudioCard() {
@@ -326,6 +344,7 @@
       audioCardAtual.load();
       audioCardAtual = null;
       setAudioPlaybackUiState(false);
+      setAudioLoopUiState(false);
     }
 
     function updateAudioButtonsState() {
@@ -335,6 +354,7 @@
       btnGerarAudioCardEnGb.classList.toggle('cursor-not-allowed', !hasCard);
       btnEditarCard.disabled = !hasCard;
       btnReproduzirAudioCardEnGb.disabled = !hasCard;
+      btnRepetirAudioCardEnGb.disabled = !hasCard;
     }
 
     function renderTextoCard(card = null) {
@@ -830,7 +850,7 @@
       return audioBase64;
     }
 
-    async function playAudioBase64(audioBase64) {
+    async function playAudioBase64(audioBase64, { loop = false } = {}) {
       if (!audioBase64) {
         throw new Error('Áudio indisponível para reprodução.');
       }
@@ -841,6 +861,7 @@
       audioCardAtual = new Audio();
       audioCardAtual.preload = 'metadata';
       audioCardAtual.src = audioDataUrl;
+      audioCardAtual.loop = loop;
       audioCardAtual.onended = () => setAudioPlaybackUiState(false);
       audioCardAtual.onpause = () => {
         if (audioCardAtual && audioCardAtual.currentTime < audioCardAtual.duration) {
@@ -849,29 +870,37 @@
       };
       audioCardAtual.onerror = () => setAudioPlaybackUiState(false);
       setAudioPlaybackUiState(true);
+      setAudioLoopUiState(loop);
       try {
         await audioCardAtual.play();
       } catch (error) {
         setAudioPlaybackUiState(false);
+        setAudioLoopUiState(false);
         throw new Error('Não foi possível iniciar a reprodução de áudio.');
       }
     }
 
-    async function playCurrentCardAudio() {
+    async function playCurrentCardAudio({ loop = false } = {}) {
       if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
         throw new Error('Nenhum card ativo disponível para reproduzir áudio.');
       }
       const audioBase64 = await ensureCardAudioEnGbBase64();
-      await playAudioBase64(audioBase64);
+      await playAudioBase64(audioBase64, { loop });
     }
 
-    function pauseCurrentCardAudio() {
+    function pauseCurrentCardAudio({ disableLoop = true } = {}) {
       if (!audioCardAtual) {
+        if (disableLoop) {
+          setAudioLoopUiState(false);
+        }
         return;
       }
       audioCardAtual.pause();
       audioCardAtual.currentTime = 0;
       setAudioPlaybackUiState(false);
+      if (disableLoop) {
+        setAudioLoopUiState(false);
+      }
     }
 
     async function tentarAutoPlayCardAtual() {
@@ -911,6 +940,20 @@
         await playCurrentCardAudio();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao reproduzir áudio do card.');
+      }
+    }, { signal });
+
+    btnRepetirAudioCardEnGb.addEventListener('click', async () => {
+      if (audioCardRepeticaoAtiva) {
+        pauseCurrentCardAudio();
+        return;
+      }
+
+      hideFeedback();
+      try {
+        await playCurrentCardAudio({ loop: true });
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao repetir áudio do card.');
       }
     }, { signal });
 
