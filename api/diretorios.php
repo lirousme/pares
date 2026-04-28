@@ -71,6 +71,60 @@ function parseRequiredId(mixed $idPayload): int
     respond(422, false, 'ID do diretório inválido.');
 }
 
+function parseTempoMeta(mixed $tempoPayload): string
+{
+    if (!is_string($tempoPayload)) {
+        respond(422, false, 'Tempo inválido. Use Diário ou Semanal.');
+    }
+
+    $tempo = trim($tempoPayload);
+    if ($tempo !== 'Diário' && $tempo !== 'Semanal') {
+        respond(422, false, 'Tempo inválido. Use Diário ou Semanal.');
+    }
+
+    return $tempo;
+}
+
+function parseQuantidadeMeta(mixed $quantidadeMetaPayload): int
+{
+    if (is_int($quantidadeMetaPayload)) {
+        $quantidadeMeta = $quantidadeMetaPayload;
+    } elseif (is_string($quantidadeMetaPayload) && ctype_digit($quantidadeMetaPayload)) {
+        $quantidadeMeta = (int) $quantidadeMetaPayload;
+    } else {
+        respond(422, false, 'Quantidade meta inválida.');
+    }
+
+    if ($quantidadeMeta < 0) {
+        respond(422, false, 'Quantidade meta não pode ser negativa.');
+    }
+
+    return $quantidadeMeta;
+}
+
+function resetMetaCountersIfNeeded(PDO $pdo, int $userId, ?int $directoryId = null): void
+{
+    $sql = 'UPDATE diretorios
+            SET quantidade_atual = 0,
+                contagem_atualizada_em = NOW()
+            WHERE id_usuario = :id_usuario
+              AND quantidade_meta > 0
+              AND ((tempo = "Diário" AND (contagem_atualizada_em IS NULL OR DATE(contagem_atualizada_em) < CURRENT_DATE()))
+                OR (tempo = "Semanal" AND (contagem_atualizada_em IS NULL OR YEARWEEK(contagem_atualizada_em, 1) < YEARWEEK(CURDATE(), 1))))';
+
+    $params = [
+        'id_usuario' => $userId,
+    ];
+
+    if ($directoryId !== null) {
+        $sql .= ' AND id = :id_diretorio';
+        $params['id_diretorio'] = $directoryId;
+    }
+
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+}
+
 function jsonInput(): array
 {
     $raw = file_get_contents('php://input');
@@ -109,6 +163,8 @@ try {
         }
 
         $tipo = parseTipo($payload['tipo'] ?? null);
+        $tempo = parseTempoMeta($payload['tempo'] ?? 'Diário');
+        $quantidadeMeta = parseQuantidadeMeta($payload['quantidade_meta'] ?? 0);
 
         if ($idPai !== null) {
             $checkParent = $pdo->prepare('SELECT id FROM diretorios WHERE id = :id AND id_usuario = :id_usuario LIMIT 1');
@@ -122,10 +178,12 @@ try {
             }
         }
 
-        $insert = $pdo->prepare('INSERT INTO diretorios (nome, id_pai, tipo, id_usuario) VALUES (:nome, :id_pai, :tipo, :id_usuario)');
+        $insert = $pdo->prepare('INSERT INTO diretorios (nome, id_pai, tipo, id_usuario, tempo, quantidade_meta, quantidade_atual, meta_atualizada_em, contagem_atualizada_em) VALUES (:nome, :id_pai, :tipo, :id_usuario, :tempo, :quantidade_meta, 0, NOW(), NOW())');
         $insert->bindValue(':nome', $nome);
         $insert->bindValue(':tipo', $tipo, PDO::PARAM_INT);
         $insert->bindValue(':id_usuario', $userId, PDO::PARAM_INT);
+        $insert->bindValue(':tempo', $tempo);
+        $insert->bindValue(':quantidade_meta', $quantidadeMeta, PDO::PARAM_INT);
         if ($idPai === null) {
             $insert->bindValue(':id_pai', null, PDO::PARAM_NULL);
         } else {
@@ -139,6 +197,9 @@ try {
                 'nome' => $nome,
                 'id_pai' => $idPai,
                 'tipo' => $tipo,
+                'tempo' => $tempo,
+                'quantidade_meta' => $quantidadeMeta,
+                'quantidade_atual' => 0,
                 'id_usuario' => $userId,
             ],
         ]);
@@ -157,11 +218,15 @@ try {
         }
 
         $tipo = parseTipo($payload['tipo'] ?? null);
+        $tempo = parseTempoMeta($payload['tempo'] ?? 'Diário');
+        $quantidadeMeta = parseQuantidadeMeta($payload['quantidade_meta'] ?? 0);
 
-        $update = $pdo->prepare('UPDATE diretorios SET nome = :nome, tipo = :tipo WHERE id = :id AND id_usuario = :id_usuario');
+        $update = $pdo->prepare('UPDATE diretorios SET nome = :nome, tipo = :tipo, tempo = :tempo, quantidade_meta = :quantidade_meta, meta_atualizada_em = NOW() WHERE id = :id AND id_usuario = :id_usuario');
         $update->execute([
             'nome' => $nome,
             'tipo' => $tipo,
+            'tempo' => $tempo,
+            'quantidade_meta' => $quantidadeMeta,
             'id' => $id,
             'id_usuario' => $userId,
         ]);
@@ -178,11 +243,24 @@ try {
             }
         }
 
+        resetMetaCountersIfNeeded($pdo, $userId, $id);
+
+        $refreshDirectory = $pdo->prepare('SELECT quantidade_atual FROM diretorios WHERE id = :id AND id_usuario = :id_usuario LIMIT 1');
+        $refreshDirectory->execute([
+            'id' => $id,
+            'id_usuario' => $userId,
+        ]);
+        $directoryUpdated = $refreshDirectory->fetch();
+        $quantidadeAtual = $directoryUpdated ? (int) $directoryUpdated['quantidade_atual'] : 0;
+
         respond(200, true, 'Diretório atualizado com sucesso.', [
             'diretorio' => [
                 'id' => $id,
                 'nome' => $nome,
                 'tipo' => $tipo,
+                'tempo' => $tempo,
+                'quantidade_meta' => $quantidadeMeta,
+                'quantidade_atual' => $quantidadeAtual,
             ],
         ]);
     }
@@ -211,12 +289,13 @@ try {
     }
 
     $idPai = parseIdPai(isset($_GET['id_pai']) ? (string) $_GET['id_pai'] : null);
+    resetMetaCountersIfNeeded($pdo, $userId);
 
     if ($idPai === null) {
-        $stmt = $pdo->prepare('SELECT id, nome, id_pai, tipo FROM diretorios WHERE id_usuario = :id_usuario AND id_pai IS NULL ORDER BY nome ASC');
+        $stmt = $pdo->prepare('SELECT id, nome, id_pai, tipo, tempo, quantidade_meta, quantidade_atual, contagem_atualizada_em FROM diretorios WHERE id_usuario = :id_usuario AND id_pai IS NULL ORDER BY nome ASC');
         $stmt->execute(['id_usuario' => $userId]);
     } else {
-        $stmt = $pdo->prepare('SELECT id, nome, id_pai, tipo FROM diretorios WHERE id_usuario = :id_usuario AND id_pai = :id_pai ORDER BY nome ASC');
+        $stmt = $pdo->prepare('SELECT id, nome, id_pai, tipo, tempo, quantidade_meta, quantidade_atual, contagem_atualizada_em FROM diretorios WHERE id_usuario = :id_usuario AND id_pai = :id_pai ORDER BY nome ASC');
         $stmt->execute([
             'id_usuario' => $userId,
             'id_pai' => $idPai,
@@ -227,6 +306,8 @@ try {
 
     foreach ($diretorios as &$diretorio) {
         $diretorio['has_revisao_vencida'] = false;
+        $diretorio['meta_pendente'] = (int) $diretorio['quantidade_meta'] > 0
+            && (int) $diretorio['quantidade_atual'] < (int) $diretorio['quantidade_meta'];
     }
     unset($diretorio);
 

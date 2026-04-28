@@ -53,6 +53,19 @@
         </select>
       </div>
 
+      <div>
+        <label for="selectTempoMeta" class="mb-1 block text-sm text-slate-300">Tempo da meta</label>
+        <select id="selectTempoMeta" name="tempo" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500">
+          <option value="Diário">Diário</option>
+          <option value="Semanal">Semanal</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="inputQuantidadeMeta" class="mb-1 block text-sm text-slate-300">Quantidade meta</label>
+        <input id="inputQuantidadeMeta" name="quantidade_meta" type="number" min="0" step="1" value="0" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500" required />
+      </div>
+
       <p id="modalErro" class="hidden rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200"></p>
 
       <div class="flex items-center justify-end gap-2">
@@ -80,6 +93,8 @@
     const formDiretorio = document.getElementById('formDiretorio');
     const inputNome = document.getElementById('inputNome');
     const selectTipo = document.getElementById('selectTipo');
+    const selectTempoMeta = document.getElementById('selectTempoMeta');
+    const inputQuantidadeMeta = document.getElementById('inputQuantidadeMeta');
     const modalErro = document.getElementById('modalErro');
     const btnCancelarModal = document.getElementById('btnCancelarModal');
     const btnSalvarModal = document.getElementById('btnSalvarModal');
@@ -153,6 +168,8 @@
       btnExcluir.classList.add('hidden');
       inputNome.value = '';
       selectTipo.value = '1';
+      selectTempoMeta.value = 'Diário';
+      inputQuantidadeMeta.value = '0';
       hideModalError();
       modalDiretorio.classList.remove('hidden');
       modalDiretorio.classList.add('flex');
@@ -167,6 +184,8 @@
       btnExcluir.classList.remove('hidden');
       inputNome.value = diretorio.nome;
       selectTipo.value = String(Number.parseInt(diretorio.tipo, 10) === 2 ? 2 : 1);
+      selectTempoMeta.value = diretorio.tempo === 'Semanal' ? 'Semanal' : 'Diário';
+      inputQuantidadeMeta.value = String(Math.max(0, Number.parseInt(diretorio.quantidade_meta, 10) || 0));
       hideModalError();
       modalDiretorio.classList.remove('hidden');
       modalDiretorio.classList.add('flex');
@@ -185,12 +204,21 @@
 
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'relative block w-full rounded-xl border border-slate-700 bg-slate-950 p-4 pr-14 text-left transition hover:border-brand-500/60 hover:bg-slate-900';
+      const metaPendente = Boolean(diretorio.meta_pendente);
+      button.className = metaPendente
+        ? 'relative block w-full rounded-xl border border-rose-500/70 bg-rose-950/20 p-4 pr-14 text-left transition hover:border-rose-400 hover:bg-rose-950/30'
+        : 'relative block w-full rounded-xl border border-slate-700 bg-slate-950 p-4 pr-14 text-left transition hover:border-brand-500/60 hover:bg-slate-900';
       const tipo = Number.parseInt(diretorio.tipo, 10);
       const tipoLabel = tipo === 2 ? 'Cards' : 'Diretório';
+      const quantidadeMeta = Math.max(0, Number.parseInt(diretorio.quantidade_meta, 10) || 0);
+      const quantidadeAtual = Math.max(0, Number.parseInt(diretorio.quantidade_atual, 10) || 0);
+      const linhaMeta = quantidadeMeta > 0
+        ? `<p class="mt-1 text-xs ${metaPendente ? 'text-rose-300' : 'text-emerald-300'}">Meta ${diretorio.tempo}: ${quantidadeAtual}/${quantidadeMeta}</p>`
+        : '<p class="mt-1 text-xs text-slate-500">Meta desativada</p>';
       button.innerHTML = `
         <p class="text-base font-semibold text-white">${diretorio.nome}</p>
         <p class="mt-1 text-xs text-slate-400">ID: ${diretorio.id} • Tipo: ${tipoLabel}</p>
+        ${linhaMeta}
       `;
 
       button.addEventListener('click', () => {
@@ -345,6 +373,8 @@
 
       const nome = inputNome.value.trim();
       const tipo = Number.parseInt(selectTipo.value, 10);
+      const tempo = selectTempoMeta.value === 'Semanal' ? 'Semanal' : 'Diário';
+      const quantidadeMeta = Number.parseInt(inputQuantidadeMeta.value, 10);
       if (!nome) {
         showModalError('Informe um nome válido para o diretório.');
         return;
@@ -352,6 +382,11 @@
 
       if (tipo !== 1 && tipo !== 2) {
         showModalError('Tipo inválido.');
+        return;
+      }
+
+      if (Number.isNaN(quantidadeMeta) || quantidadeMeta < 0) {
+        showModalError('Quantidade meta inválida.');
         return;
       }
 
@@ -367,6 +402,8 @@
             body: JSON.stringify({
               nome,
               tipo,
+              tempo,
+              quantidade_meta: quantidadeMeta,
               id_pai: getIdPai(),
             }),
           });
@@ -380,6 +417,8 @@
               id: diretorioEditando.id,
               nome,
               tipo,
+              tempo,
+              quantidade_meta: quantidadeMeta,
             }),
           });
         }
