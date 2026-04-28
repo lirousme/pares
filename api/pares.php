@@ -41,6 +41,35 @@ function parsePositiveInt(mixed $value, string $fieldName): int
     respond(422, false, sprintf('%s inválido.', $fieldName));
 }
 
+function incrementMetaForDirectory(PDO $pdo, int $userId, int $idDiretorio): void
+{
+    $resetSql = 'UPDATE diretorios
+                 SET quantidade_atual = 0,
+                     contagem_atualizada_em = NOW()
+                 WHERE id = :id_diretorio
+                   AND id_usuario = :id_usuario
+                   AND quantidade_meta > 0
+                   AND ((tempo = "Diário" AND (contagem_atualizada_em IS NULL OR DATE(contagem_atualizada_em) < CURRENT_DATE()))
+                     OR (tempo = "Semanal" AND (contagem_atualizada_em IS NULL OR YEARWEEK(contagem_atualizada_em, 1) < YEARWEEK(CURDATE(), 1))))';
+    $resetStmt = $pdo->prepare($resetSql);
+    $resetStmt->execute([
+        'id_diretorio' => $idDiretorio,
+        'id_usuario' => $userId,
+    ]);
+
+    $incrementSql = 'UPDATE diretorios
+                     SET quantidade_atual = quantidade_atual + 1,
+                         contagem_atualizada_em = NOW()
+                     WHERE id = :id_diretorio
+                       AND id_usuario = :id_usuario
+                       AND quantidade_meta > 0';
+    $incrementStmt = $pdo->prepare($incrementSql);
+    $incrementStmt->execute([
+        'id_diretorio' => $idDiretorio,
+        'id_usuario' => $userId,
+    ]);
+}
+
 
 function nextExpansionAvailability(DateTimeImmutable $agora, int $expansions): string
 {
@@ -905,6 +934,7 @@ try {
                 ]);
             }
 
+            incrementMetaForDirectory($pdo, $userId, $idDiretorio);
             $pdo->commit();
 
             respond(201, true, 'Card relacionado criado com sucesso.', [
@@ -965,6 +995,7 @@ try {
                 'expansions' => -3,
                 'proxima_expansion' => $agoraFormatado,
             ]);
+            incrementMetaForDirectory($pdo, $userId, $idDiretorio);
 
             respond(201, true, 'Card criado com sucesso.', [
                 'card' => [
