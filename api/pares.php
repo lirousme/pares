@@ -325,7 +325,7 @@ function translateTextToEnGbWithOpenAi(string $texto): array
                 'content' => [
                     [
                         'type' => 'input_text',
-                        'text' => 'Você é um tradutor especializado em português brasileiro para inglês britânico. Se o usuário enviar texto em português brasileiro, traduza para inglês britânico (en-GB). Se já estiver em inglês, mantenha em inglês natural en-GB. Responda APENAS com JSON válido no formato {"translated_text":"...","target_language":"en-GB"}.',
+                        'text' => 'Você converte qualquer entrada para inglês britânico (en-GB) 100% e gramaticalmente correto. Fluxo obrigatório: 1) Detecte se o texto do usuário já está 100% em inglês. 2) Se não estiver, traduza TODO o conteúdo para inglês (en-GB), sem omissões e sem responder à intenção/pergunta. 3) Se já estiver 100% em inglês, revise gramática, ortografia, pontuação e naturalidade em en-GB; se estiver correto, mantenha o texto. 4) Se a entrada for pergunta, mantenha como pergunta, apenas corrigindo/traduzindo o texto (nunca responda a pergunta). Saída: APENAS JSON válido no formato {"translated_text":"...","target_language":"en-GB"}.',
                     ],
                 ],
             ],
