@@ -810,10 +810,16 @@ try {
         if ($action === 'criar_card_relacionado' || $action === 'criar_par_por_texto') {
             $idDiretorio = parsePositiveInt($payload['id_diretorio'] ?? null, 'ID do diretório');
             $idCardUm = parsePositiveInt($payload['id_card_base'] ?? $payload['id_card_um'] ?? null, 'ID do card base');
+            $modoTexto = (string) ($payload['modo_texto'] ?? 'engb');
             $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
             $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
+            $salvarPtBrPrimario = $modoTexto === 'ptbr';
 
-            if ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
+            if ($salvarPtBrPrimario) {
+                if ($textoPtBr === '') {
+                    respond(422, false, 'Texto pt-BR é obrigatório quando o modo pt-BR estiver ativo.');
+                }
+            } elseif ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
                 respond(422, false, 'Texto en-GB é obrigatório e pt-BR é obrigatório apenas quando estiver ativo.');
             }
 
@@ -848,7 +854,10 @@ try {
             }
 
             $textoPtBr = $ptbrAtivo ? $textoPtBr : '';
-            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
+            $textoEnGb = $salvarPtBrPrimario ? '' : $textoEnGb;
+            $audios = $salvarPtBrPrimario
+                ? ['audio_engb' => null, 'audio_ptbr' => null]
+                : synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
 
             $pdo->beginTransaction();
 
