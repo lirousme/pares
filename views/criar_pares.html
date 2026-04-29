@@ -380,12 +380,13 @@
         return;
       }
 
-      const textoEnGb = (card.texto_engb || card.texto || '').trim();
+      const textoEnGb = (card.texto_engb || '').trim();
       const textoPtBr = (card.texto_ptbr || '').trim();
-      const textoPrincipalPtBr = textoPtBr || (card.texto || '').trim();
-      cardAtualEhPtBrPrimario = textoEnGb === '' && textoPtBr !== '';
+      const textoLegado = (card.texto || '').trim();
+      const textoPrincipal = textoEnGb || textoPtBr || textoLegado;
+      cardAtualEhPtBrPrimario = textoEnGb === '' && (textoPtBr !== '' || textoLegado !== '');
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
-      textoCard.textContent = cardAtualEhPtBrPrimario ? (textoPrincipalPtBr || 'Card sem texto.') : (textoEnGb || 'Card sem texto.');
+      textoCard.textContent = textoPrincipal || 'Card sem texto.';
       textoCard.classList.toggle('text-[#8A05BE]', cardAtualEhPtBrPrimario);
       textoCard.classList.toggle('text-white', !cardAtualEhPtBrPrimario);
       textoCardPtBr.textContent = ptbrAtivo && !cardAtualEhPtBrPrimario ? textoPtBr : '';
@@ -703,12 +704,13 @@
         return;
       }
 
-      const textoEnGb = textoRespostaParEnGb.value.trim();
-      if (!textoEnGb) {
+      const textoDigitado = textoRespostaParEnGb.value.trim();
+      if (!textoDigitado) {
         showFeedback('Preencha o texto para enviar.');
         return;
       }
-      const textoPtBr = respostaPtBrPrimario ? textoEnGb : '';
+      const textoPtBr = respostaPtBrPrimario ? textoDigitado : '';
+      const textoEnGb = respostaPtBrPrimario ? '' : textoDigitado;
 
       btnEnviarRespostaPar.disabled = true;
       btnEnviarRespostaPar.textContent = 'Enviando...';
@@ -724,7 +726,7 @@
             id_diretorio: idDiretorio,
             id_card_base: idCardAtual,
             modo_texto: respostaPtBrPrimario ? 'ptbr' : 'engb',
-            texto_engb: respostaPtBrPrimario ? '' : textoEnGb,
+            texto_engb: textoEnGb,
             texto_ptbr: respostaPtBrPrimario ? textoPtBr : '',
           }),
         });
