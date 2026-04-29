@@ -56,6 +56,18 @@
 
   <form id="formRespostaPar" class="mt-6">
     <div class="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 shadow-lg">
+      <div class="mb-3 flex items-center justify-between gap-3 text-sm">
+        <label for="switchRespostaPtBrPrimario" class="text-slate-200">Salvar resposta como texto pt-BR</label>
+        <button
+          id="switchRespostaPtBrPrimario"
+          type="button"
+          role="switch"
+          aria-checked="false"
+          class="inline-flex h-7 w-14 items-center rounded-full border border-slate-600 bg-slate-800 px-1 transition"
+        >
+          <span id="switchRespostaPtBrPrimarioKnob" class="h-5 w-5 rounded-full bg-white transition"></span>
+        </button>
+      </div>
       <div class="mb-2 flex flex-wrap items-center justify-end gap-3">
         <button
           id="btnRepetirAudioCardEnGb"
@@ -283,6 +295,8 @@
     const textoReproduzirAudioCardEnGb = document.getElementById('textoReproduzirAudioCardEnGb');
     const btnTraduzirRespostaPar = document.getElementById('btnTraduzirRespostaPar');
     const btnEnviarRespostaPar = document.getElementById('btnEnviarRespostaPar');
+    const switchRespostaPtBrPrimario = document.getElementById('switchRespostaPtBrPrimario');
+    const switchRespostaPtBrPrimarioKnob = document.getElementById('switchRespostaPtBrPrimarioKnob');
     const params = new URLSearchParams(window.location.search);
     const idDiretorio = Number.parseInt(params.get('id_diretorio') || '', 10);
     let idCardAtual = null;
@@ -295,6 +309,8 @@
     let cacheAudioCardId = null;
     let cacheAudioCardBase64 = '';
     let ptbrAtivo = true;
+    let respostaPtBrPrimario = false;
+    let cardAtualEhPtBrPrimario = false;
 
     function setAudioPlaybackUiState(isPlaying) {
       audioCardEmReproducao = isPlaying;
@@ -349,12 +365,23 @@
 
     function updateAudioButtonsState() {
       const hasCard = Number.isInteger(idCardAtual) && idCardAtual > 0;
-      btnGerarAudioCardEnGb.disabled = !hasCard;
-      btnGerarAudioCardEnGb.classList.toggle('opacity-50', !hasCard);
-      btnGerarAudioCardEnGb.classList.toggle('cursor-not-allowed', !hasCard);
+      const podeGerarAudioEnGb = hasCard && !cardAtualEhPtBrPrimario;
+      btnGerarAudioCardEnGb.disabled = !podeGerarAudioEnGb;
+      btnGerarAudioCardEnGb.classList.toggle('opacity-50', !podeGerarAudioEnGb);
+      btnGerarAudioCardEnGb.classList.toggle('cursor-not-allowed', !podeGerarAudioEnGb);
       btnEditarCard.disabled = !hasCard;
-      btnReproduzirAudioCardEnGb.disabled = !hasCard;
-      btnRepetirAudioCardEnGb.disabled = !hasCard;
+      btnReproduzirAudioCardEnGb.disabled = !podeGerarAudioEnGb;
+      btnRepetirAudioCardEnGb.disabled = !podeGerarAudioEnGb;
+    }
+
+    function atualizarSwitchRespostaPtBrPrimarioUi() {
+      switchRespostaPtBrPrimario.setAttribute('aria-checked', respostaPtBrPrimario ? 'true' : 'false');
+      switchRespostaPtBrPrimario.classList.toggle('bg-fuchsia-700/70', respostaPtBrPrimario);
+      switchRespostaPtBrPrimario.classList.toggle('border-fuchsia-400/70', respostaPtBrPrimario);
+      switchRespostaPtBrPrimario.classList.toggle('bg-slate-800', !respostaPtBrPrimario);
+      switchRespostaPtBrPrimario.classList.toggle('border-slate-600', !respostaPtBrPrimario);
+      switchRespostaPtBrPrimarioKnob.style.transform = respostaPtBrPrimario ? 'translateX(1.6rem)' : 'translateX(0)';
+      btnTraduzirRespostaPar.disabled = respostaPtBrPrimario;
     }
 
     function renderTextoCard(card = null) {
@@ -367,9 +394,12 @@
 
       const textoEnGb = (card.texto_engb || card.texto || '').trim();
       const textoPtBr = (card.texto_ptbr || '').trim();
+      cardAtualEhPtBrPrimario = textoEnGb === '' && textoPtBr !== '';
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
-      textoCard.textContent = textoEnGb || 'Card sem texto.';
-      textoCardPtBr.textContent = ptbrAtivo ? textoPtBr : '';
+      textoCard.textContent = cardAtualEhPtBrPrimario ? textoPtBr : (textoEnGb || 'Card sem texto.');
+      textoCard.classList.toggle('text-fuchsia-400', cardAtualEhPtBrPrimario);
+      textoCard.classList.toggle('text-white', !cardAtualEhPtBrPrimario);
+      textoCardPtBr.textContent = ptbrAtivo && !cardAtualEhPtBrPrimario ? textoPtBr : '';
       tituloExpansions.textContent = String(card.expansions ?? '--');
       updateAudioButtonsState();
     }
@@ -503,7 +533,9 @@
         limparCacheAudioCard();
         resetCurrentAudioPlayer();
         updateAudioButtonsState();
-        await tentarAutoPlayCardAtual();
+        if (!cardAtualEhPtBrPrimario) {
+          await tentarAutoPlayCardAtual();
+        }
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao criar card.');
       } finally {
@@ -622,6 +654,11 @@
     resizeTextarea(textoRespostaParEnGb);
     resizeTextarea(textoRespostaParPtBr);
 
+    switchRespostaPtBrPrimario.addEventListener('click', () => {
+      respostaPtBrPrimario = !respostaPtBrPrimario;
+      atualizarSwitchRespostaPtBrPrimarioUi();
+    }, { signal });
+
     btnTraduzirRespostaPar.addEventListener('click', async () => {
       const texto = textoRespostaParEnGb.value.trim();
       if (!texto) {
@@ -681,7 +718,12 @@
 
       const textoEnGb = textoRespostaParEnGb.value.trim();
       const textoPtBr = textoRespostaParPtBr.value.trim();
-      if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
+      if (respostaPtBrPrimario) {
+        if (!textoPtBr) {
+          showFeedback('Com o switch ativo, preencha o texto pt-BR.');
+          return;
+        }
+      } else if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
         showFeedback('Preencha o texto en-GB e, com pt-BR ativo, também o texto pt-BR.');
         return;
       }
@@ -699,7 +741,8 @@
             action: 'criar_card_relacionado',
             id_diretorio: idDiretorio,
             id_card_base: idCardAtual,
-            texto_engb: textoEnGb,
+            modo_texto: respostaPtBrPrimario ? 'ptbr' : 'engb',
+            texto_engb: respostaPtBrPrimario ? '' : textoEnGb,
             texto_ptbr: ptbrAtivo ? textoPtBr : '',
           }),
         });
@@ -798,7 +841,9 @@
         resetCurrentAudioPlayer();
         renderTextoCard(result.card);
         updateAudioButtonsState();
-        await tentarAutoPlayCardAtual();
+        if (!cardAtualEhPtBrPrimario) {
+          await tentarAutoPlayCardAtual();
+        }
       } catch (error) {
         idCardAtual = null;
         quantidadeRevisoesCardAtual = 0;
