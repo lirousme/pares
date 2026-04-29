@@ -50,7 +50,7 @@
   <div class="flex flex-1 items-center justify-center">
     <div class="relative w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
       <p id="textoCardCriarPares" class="text-xl font-semibold text-white">Carregando...</p>
-      <p id="textoCardPtBrCriarPares" class="mt-2 text-lg font-semibold text-emerald-300"></p>
+      <p id="textoCardPtBrCriarPares" class="mt-2 text-lg font-semibold text-[#8A05BE]"></p>
     </div>
   </div>
 
@@ -382,10 +382,11 @@
 
       const textoEnGb = (card.texto_engb || card.texto || '').trim();
       const textoPtBr = (card.texto_ptbr || '').trim();
+      const textoPrincipalPtBr = textoPtBr || (card.texto || '').trim();
       cardAtualEhPtBrPrimario = textoEnGb === '' && textoPtBr !== '';
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
-      textoCard.textContent = cardAtualEhPtBrPrimario ? textoPtBr : (textoEnGb || 'Card sem texto.');
-      textoCard.classList.toggle('text-purple-400', cardAtualEhPtBrPrimario);
+      textoCard.textContent = cardAtualEhPtBrPrimario ? (textoPrincipalPtBr || 'Card sem texto.') : (textoEnGb || 'Card sem texto.');
+      textoCard.classList.toggle('text-[#8A05BE]', cardAtualEhPtBrPrimario);
       textoCard.classList.toggle('text-white', !cardAtualEhPtBrPrimario);
       textoCardPtBr.textContent = ptbrAtivo && !cardAtualEhPtBrPrimario ? textoPtBr : '';
       tituloExpansions.textContent = String(card.expansions ?? '--');
