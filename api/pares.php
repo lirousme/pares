@@ -626,11 +626,6 @@ try {
                 ]);
             }
 
-            if (!$ptbrAtivo) {
-                $card['texto_ptbr'] = '';
-                $card['audio_ptbr'] = null;
-            }
-
             respond(200, true, 'Card carregado com sucesso.', [
                 'id_diretorio' => $idDiretorio,
                 'card' => $card,

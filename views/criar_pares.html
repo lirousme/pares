@@ -380,9 +380,14 @@
         return;
       }
 
-      const textoEnGb = (card.texto_engb || '').trim();
-      const textoPtBr = (card.texto_ptbr || '').trim();
-      const textoLegado = (card.texto || '').trim();
+      const normalizarTextoCard = (valor) => {
+        const texto = typeof valor === 'string' ? valor : '';
+        const textoNormalizado = texto.trim();
+        return textoNormalizado.toLowerCase() === 'null' ? '' : textoNormalizado;
+      };
+      const textoEnGb = normalizarTextoCard(card.texto_engb);
+      const textoPtBr = normalizarTextoCard(card.texto_ptbr);
+      const textoLegado = normalizarTextoCard(card.texto);
       const textoPrincipal = textoEnGb || textoPtBr || textoLegado;
       cardAtualEhPtBrPrimario = textoEnGb === '' && (textoPtBr !== '' || textoLegado !== '');
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
