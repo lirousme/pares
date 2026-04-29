@@ -56,19 +56,19 @@
 
   <form id="formRespostaPar" class="mt-6">
     <div class="rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 shadow-lg">
-      <div class="mb-3 flex items-center justify-between gap-3 text-sm">
-        <label for="switchRespostaPtBrPrimario" class="text-slate-200">Salvar resposta como texto pt-BR</label>
-        <button
-          id="switchRespostaPtBrPrimario"
-          type="button"
-          role="switch"
-          aria-checked="false"
-          class="inline-flex h-7 w-14 items-center rounded-full border border-slate-600 bg-slate-800 px-1 transition"
-        >
-          <span id="switchRespostaPtBrPrimarioKnob" class="h-5 w-5 rounded-full bg-white transition"></span>
-        </button>
-      </div>
       <div class="mb-2 flex flex-wrap items-center justify-end gap-3">
+        <div class="mr-auto flex items-center gap-2 text-sm">
+          <button
+            id="switchRespostaPtBrPrimario"
+            type="button"
+            role="switch"
+            aria-checked="false"
+            class="inline-flex h-7 w-14 items-center rounded-full border border-slate-600 bg-slate-800 px-1 transition"
+          >
+            <span id="switchRespostaPtBrPrimarioKnob" class="h-5 w-5 rounded-full bg-white transition"></span>
+          </button>
+          <label for="switchRespostaPtBrPrimario" class="text-slate-200">Salvar em pt-BR</label>
+        </div>
         <button
           id="btnRepetirAudioCardEnGb"
           type="button"
@@ -109,17 +109,6 @@
         class="mb-2 max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-slate-700 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
         placeholder="Digite o texto em inglês (en-GB)..."
       ></textarea>
-      <div id="containerRespostaParPtBr">
-        <textarea
-          id="textoRespostaParPtBr"
-          name="texto_ptbr"
-          maxlength="1500"
-          required
-          rows="1"
-          class="max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-emerald-500/60 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-emerald-400"
-          placeholder="Digite o texto em português (pt-BR)..."
-        ></textarea>
-      </div>
     </div>
   </form>
 
@@ -285,8 +274,6 @@
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
     const textoRespostaParEnGb = document.getElementById('textoRespostaParEnGb');
-    const textoRespostaParPtBr = document.getElementById('textoRespostaParPtBr');
-    const containerRespostaParPtBr = document.getElementById('containerRespostaParPtBr');
     const btnRepetirAudioCardEnGb = document.getElementById('btnRepetirAudioCardEnGb');
     const iconeRepetirAudioCardEnGb = document.getElementById('iconeRepetirAudioCardEnGb');
     const textoRepetirAudioCardEnGb = document.getElementById('textoRepetirAudioCardEnGb');
@@ -342,11 +329,9 @@
       ptbrAtivo = Boolean(result.ptbr_ativo);
       containerNovoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
       containerEditarCardPtBr.classList.toggle('hidden', !ptbrAtivo);
-      containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
       textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
       textoNovoCardPtBr.required = ptbrAtivo;
       textoEditarCardPtBr.required = ptbrAtivo;
-      textoRespostaParPtBr.required = ptbrAtivo;
     }
 
     function resetCurrentAudioPlayer() {
@@ -382,6 +367,9 @@
       switchRespostaPtBrPrimario.classList.toggle('border-slate-600', !respostaPtBrPrimario);
       switchRespostaPtBrPrimarioKnob.style.transform = respostaPtBrPrimario ? 'translateX(1.6rem)' : 'translateX(0)';
       btnTraduzirRespostaPar.disabled = respostaPtBrPrimario;
+      textoRespostaParEnGb.placeholder = respostaPtBrPrimario
+        ? 'Digite o texto em português (pt-BR)...'
+        : 'Digite o texto em inglês (en-GB)...';
     }
 
     function renderTextoCard(card = null) {
@@ -397,7 +385,7 @@
       cardAtualEhPtBrPrimario = textoEnGb === '' && textoPtBr !== '';
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
       textoCard.textContent = cardAtualEhPtBrPrimario ? textoPtBr : (textoEnGb || 'Card sem texto.');
-      textoCard.classList.toggle('text-fuchsia-400', cardAtualEhPtBrPrimario);
+      textoCard.classList.toggle('text-purple-400', cardAtualEhPtBrPrimario);
       textoCard.classList.toggle('text-white', !cardAtualEhPtBrPrimario);
       textoCardPtBr.textContent = ptbrAtivo && !cardAtualEhPtBrPrimario ? textoPtBr : '';
       tituloExpansions.textContent = String(card.expansions ?? '--');
@@ -650,9 +638,7 @@
     }
 
     textoRespostaParEnGb.addEventListener('input', () => resizeTextarea(textoRespostaParEnGb), { signal });
-    textoRespostaParPtBr.addEventListener('input', () => resizeTextarea(textoRespostaParPtBr), { signal });
     resizeTextarea(textoRespostaParEnGb);
-    resizeTextarea(textoRespostaParPtBr);
 
     switchRespostaPtBrPrimario.addEventListener('click', () => {
       respostaPtBrPrimario = !respostaPtBrPrimario;
@@ -717,16 +703,11 @@
       }
 
       const textoEnGb = textoRespostaParEnGb.value.trim();
-      const textoPtBr = textoRespostaParPtBr.value.trim();
-      if (respostaPtBrPrimario) {
-        if (!textoPtBr) {
-          showFeedback('Com o switch ativo, preencha o texto pt-BR.');
-          return;
-        }
-      } else if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
-        showFeedback('Preencha o texto en-GB e, com pt-BR ativo, também o texto pt-BR.');
+      if (!textoEnGb) {
+        showFeedback('Preencha o texto para enviar.');
         return;
       }
+      const textoPtBr = respostaPtBrPrimario ? textoEnGb : '';
 
       btnEnviarRespostaPar.disabled = true;
       btnEnviarRespostaPar.textContent = 'Enviando...';
@@ -743,7 +724,7 @@
             id_card_base: idCardAtual,
             modo_texto: respostaPtBrPrimario ? 'ptbr' : 'engb',
             texto_engb: respostaPtBrPrimario ? '' : textoEnGb,
-            texto_ptbr: ptbrAtivo ? textoPtBr : '',
+            texto_ptbr: respostaPtBrPrimario ? textoPtBr : '',
           }),
         });
         const result = await response.json();
@@ -762,11 +743,7 @@
 
         hideFeedback();
         textoRespostaParEnGb.value = '';
-        textoRespostaParPtBr.value = '';
         resizeTextarea(textoRespostaParEnGb);
-        if (ptbrAtivo) {
-          resizeTextarea(textoRespostaParPtBr);
-        }
         const baseCardRemovido = Boolean(result.base_card?.removido);
         incrementarContadorCardsCriados();
         const mensagemRemocao = baseCardRemovido
@@ -818,10 +795,8 @@
         if (typeof result.ptbr_ativo === 'boolean') {
           ptbrAtivo = result.ptbr_ativo;
           containerNovoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
-          containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
           textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
           textoNovoCardPtBr.required = ptbrAtivo;
-          textoRespostaParPtBr.required = ptbrAtivo;
         }
 
         if (!result.card) {
