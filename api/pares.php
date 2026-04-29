@@ -853,7 +853,7 @@ try {
                 respond(404, false, 'Card base não encontrado no diretório informado.');
             }
 
-            $textoPtBr = $ptbrAtivo ? $textoPtBr : '';
+            $textoPtBr = $salvarPtBrPrimario ? $textoPtBr : ($ptbrAtivo ? $textoPtBr : '');
             $textoEnGb = $salvarPtBrPrimario ? '' : $textoEnGb;
             $audios = $salvarPtBrPrimario
                 ? ['audio_engb' => null, 'audio_ptbr' => null]
