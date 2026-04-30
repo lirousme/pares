@@ -303,6 +303,8 @@
     let cacheAudioCardId = null;
     let cacheAudioCardEnGbBase64 = '';
     let cacheAudioCardPtBrBase64 = '';
+    let textoCardAtualEnGb = '';
+    let textoCardAtualPtBr = '';
     let ptbrAtivo = true;
     let respostaPtBrPrimario = false;
     let cardAtualEhPtBrPrimario = false;
@@ -380,6 +382,8 @@
 
     function renderTextoCard(card = null) {
       if (!card) {
+        textoCardAtualEnGb = '';
+        textoCardAtualPtBr = '';
         textoCard.textContent = 'Card sem texto.';
         textoCardPtBr.textContent = '';
         tituloExpansions.textContent = '--';
@@ -395,6 +399,8 @@
       const textoPtBr = normalizarTextoCard(card.texto_ptbr);
       const textoLegado = normalizarTextoCard(card.texto);
       const textoPrincipal = textoEnGb || textoLegado;
+      textoCardAtualEnGb = textoPrincipal;
+      textoCardAtualPtBr = textoPtBr;
       cardAtualEhPtBrPrimario = textoEnGb === '' && (textoPtBr !== '' || textoLegado !== '');
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
       textoCard.textContent = textoPrincipal || (textoPtBr ? '' : 'Card sem texto.');
@@ -850,12 +856,13 @@
     }
 
     async function ensureCardAudiosBase64() {
-      const textoAtual = (textoCard.textContent || '').trim();
-      if (!textoAtual) {
+      const textoAtualEnGb = (textoCardAtualEnGb || '').trim();
+      const textoAtualPtBr = (textoCardAtualPtBr || '').trim();
+      if (!textoAtualEnGb && !textoAtualPtBr) {
         throw new Error('Card sem texto disponível para gerar áudio.');
       }
-      if (textoAtual.length > AUDIO_CARD_MAX_CHARS) {
-        throw new Error(`Texto muito longo para áudio (${textoAtual.length} caracteres). Limite: ${AUDIO_CARD_MAX_CHARS}.`);
+      if (textoAtualEnGb.length > AUDIO_CARD_MAX_CHARS || textoAtualPtBr.length > AUDIO_CARD_MAX_CHARS) {
+        throw new Error(`Texto muito longo para áudio (limite: ${AUDIO_CARD_MAX_CHARS} por idioma).`);
       }
       if (cacheAudioCardId === idCardAtual && (cacheAudioCardEnGbBase64 || cacheAudioCardPtBrBase64)) {
         return {
@@ -937,10 +944,10 @@
       }
       const { audioEnGb, audioPtBr } = await ensureCardAudiosBase64();
       const audios = [];
-      if (audioPtBr) {
+      if (textoCardAtualPtBr && audioPtBr) {
         audios.push(audioPtBr);
       }
-      if (audioEnGb) {
+      if (textoCardAtualEnGb && audioEnGb) {
         audios.push(audioEnGb);
       }
       if (audios.length === 0) {
