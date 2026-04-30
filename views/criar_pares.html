@@ -100,6 +100,16 @@
           Enviar
         </button>
       </div>
+      <div id="containerRespostaParPtBr" class="mb-2 hidden">
+        <textarea
+          id="textoRespostaParPtBr"
+          name="texto_ptbr"
+          maxlength="1500"
+          rows="1"
+          class="max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-fuchsia-500/60 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+          placeholder="Digite o texto em português (pt-BR)..."
+        ></textarea>
+      </div>
       <textarea
         id="textoRespostaParEnGb"
         name="texto_engb"
@@ -274,6 +284,8 @@
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
     const textoRespostaParEnGb = document.getElementById('textoRespostaParEnGb');
+    const textoRespostaParPtBr = document.getElementById('textoRespostaParPtBr');
+    const containerRespostaParPtBr = document.getElementById('containerRespostaParPtBr');
     const btnRepetirAudioCardEnGb = document.getElementById('btnRepetirAudioCardEnGb');
     const iconeRepetirAudioCardEnGb = document.getElementById('iconeRepetirAudioCardEnGb');
     const textoRepetirAudioCardEnGb = document.getElementById('textoRepetirAudioCardEnGb');
@@ -331,9 +343,11 @@
       ptbrAtivo = Boolean(result.ptbr_ativo);
       containerNovoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
       containerEditarCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+      containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
       textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
       textoNovoCardPtBr.required = ptbrAtivo;
       textoEditarCardPtBr.required = ptbrAtivo;
+      textoRespostaParPtBr.required = ptbrAtivo;
     }
 
     function resetCurrentAudioPlayer() {
@@ -369,9 +383,7 @@
       switchRespostaPtBrPrimario.classList.toggle('border-slate-600', !respostaPtBrPrimario);
       switchRespostaPtBrPrimarioKnob.style.transform = respostaPtBrPrimario ? 'translateX(1.6rem)' : 'translateX(0)';
       btnTraduzirRespostaPar.disabled = respostaPtBrPrimario;
-      textoRespostaParEnGb.placeholder = respostaPtBrPrimario
-        ? 'Digite o texto em português (pt-BR)...'
-        : 'Digite o texto em inglês (en-GB)...';
+      textoRespostaParEnGb.placeholder = 'Digite o texto em inglês (en-GB)...';
     }
 
     function renderTextoCard(card = null) {
@@ -390,13 +402,13 @@
       const textoEnGb = normalizarTextoCard(card.texto_engb);
       const textoPtBr = normalizarTextoCard(card.texto_ptbr);
       const textoLegado = normalizarTextoCard(card.texto);
-      const textoPrincipal = textoEnGb || textoPtBr || textoLegado;
+      const textoPrincipal = textoEnGb || textoLegado || textoPtBr;
       cardAtualEhPtBrPrimario = textoEnGb === '' && (textoPtBr !== '' || textoLegado !== '');
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
       textoCard.textContent = textoPrincipal || 'Card sem texto.';
-      textoCard.classList.toggle('text-[#8A05BE]', cardAtualEhPtBrPrimario);
-      textoCard.classList.toggle('text-white', !cardAtualEhPtBrPrimario);
-      textoCardPtBr.textContent = ptbrAtivo && !cardAtualEhPtBrPrimario && textoPtBr ? textoPtBr : '';
+      textoCard.classList.add('text-white');
+      textoCard.classList.remove('text-[#8A05BE]');
+      textoCardPtBr.textContent = ptbrAtivo && textoPtBr ? textoPtBr : '';
       textoCard.classList.toggle('mt-0', !textoCardPtBr.textContent);
       textoCard.classList.toggle('mt-2', Boolean(textoCardPtBr.textContent));
       tituloExpansions.textContent = String(card.expansions ?? '--');
@@ -649,7 +661,9 @@
     }
 
     textoRespostaParEnGb.addEventListener('input', () => resizeTextarea(textoRespostaParEnGb), { signal });
+    textoRespostaParPtBr.addEventListener('input', () => resizeTextarea(textoRespostaParPtBr), { signal });
     resizeTextarea(textoRespostaParEnGb);
+    resizeTextarea(textoRespostaParPtBr);
 
     switchRespostaPtBrPrimario.addEventListener('click', () => {
       respostaPtBrPrimario = !respostaPtBrPrimario;
@@ -713,13 +727,14 @@
         return;
       }
 
-      const textoDigitado = textoRespostaParEnGb.value.trim();
-      if (!textoDigitado) {
+      const textoDigitadoEnGb = textoRespostaParEnGb.value.trim();
+      const textoDigitadoPtBr = textoRespostaParPtBr.value.trim();
+      if (!textoDigitadoEnGb && !textoDigitadoPtBr) {
         showFeedback('Preencha o texto para enviar.');
         return;
       }
-      const textoPtBr = respostaPtBrPrimario ? textoDigitado : '';
-      const textoEnGb = respostaPtBrPrimario ? '' : textoDigitado;
+      const textoPtBr = textoDigitadoPtBr;
+      const textoEnGb = textoDigitadoEnGb;
 
       btnEnviarRespostaPar.disabled = true;
       btnEnviarRespostaPar.textContent = 'Enviando...';
@@ -736,7 +751,7 @@
             id_card_base: idCardAtual,
             modo_texto: respostaPtBrPrimario ? 'ptbr' : 'engb',
             texto_engb: textoEnGb,
-            texto_ptbr: respostaPtBrPrimario ? textoPtBr : '',
+            texto_ptbr: textoPtBr,
           }),
         });
         const result = await response.json();
@@ -755,7 +770,9 @@
 
         hideFeedback();
         textoRespostaParEnGb.value = '';
+        textoRespostaParPtBr.value = '';
         resizeTextarea(textoRespostaParEnGb);
+        resizeTextarea(textoRespostaParPtBr);
         const baseCardRemovido = Boolean(result.base_card?.removido);
         incrementarContadorCardsCriados();
         const mensagemRemocao = baseCardRemovido
@@ -807,8 +824,12 @@
         if (typeof result.ptbr_ativo === 'boolean') {
           ptbrAtivo = result.ptbr_ativo;
           containerNovoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+          containerEditarCardPtBr.classList.toggle('hidden', !ptbrAtivo);
+          containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
           textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
           textoNovoCardPtBr.required = ptbrAtivo;
+          textoEditarCardPtBr.required = ptbrAtivo;
+          textoRespostaParPtBr.required = ptbrAtivo;
         }
 
         if (!result.card) {
