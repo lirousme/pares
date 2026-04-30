@@ -184,7 +184,10 @@ function synthesizeCardAudioOrRespond(string $texto, string $idioma): string
 
 function synthesizeCardAudiosOrRespond(string $textoEnGb, string $textoPtBr, bool $ptbrAtivo = true): array
 {
-    $audioEnGb = synthesizeCardAudioOrRespond($textoEnGb, 'en-GB');
+    $audioEnGb = null;
+    if ($textoEnGb !== '') {
+        $audioEnGb = synthesizeCardAudioOrRespond($textoEnGb, 'en-GB');
+    }
     $audioPtBr = null;
     if ($ptbrAtivo && $textoPtBr !== '') {
         $audioPtBr = synthesizeCardAudioOrRespond($textoPtBr, 'pt-BR');
@@ -714,17 +717,17 @@ try {
 
             $textoEnGb = trim((string) ($card['texto_engb'] ?? ''));
             $textoPtBr = $ptbrAtivo ? trim((string) ($card['texto_ptbr'] ?? '')) : '';
-            if ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
+            if ($textoEnGb === '' && $textoPtBr === '') {
                 respond(422, false, 'Card sem texto necessário para gerar áudio.');
             }
 
             $audioEnGbExistente = trim((string) ($card['audio_engb'] ?? ''));
             $audioPtBrExistente = trim((string) ($card['audio_ptbr'] ?? ''));
-            $deveGerarAudio = $audioEnGbExistente === '' || ($ptbrAtivo && $textoPtBr !== '' && $audioPtBrExistente === '');
+            $deveGerarAudio = ($textoEnGb !== '' && $audioEnGbExistente === '') || ($ptbrAtivo && $textoPtBr !== '' && $audioPtBrExistente === '');
 
             if ($deveGerarAudio) {
                 $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
-                $audioEnGbExistente = $audios['audio_engb'];
+                $audioEnGbExistente = (string) ($audios['audio_engb'] ?? '');
                 $audioPtBrExistente = $ptbrAtivo ? (string) ($audios['audio_ptbr'] ?? '') : '';
 
                 $updateCard = $pdo->prepare(
@@ -733,7 +736,7 @@ try {
                      WHERE id = :id_card'
                 );
                 $updateCard->execute([
-                    'audio_engb' => $audioEnGbExistente,
+                    'audio_engb' => $audioEnGbExistente !== '' ? $audioEnGbExistente : null,
                     'audio_ptbr' => $ptbrAtivo ? ($audioPtBrExistente !== '' ? $audioPtBrExistente : null) : null,
                     'id_card' => $idCard,
                 ]);

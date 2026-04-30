@@ -49,8 +49,8 @@
 
   <div class="flex flex-1 items-center justify-center">
     <div class="relative w-full max-w-xl rounded-2xl border border-slate-700 bg-slate-950 p-8 text-center shadow-lg">
-      <p id="textoCardCriarPares" class="text-xl font-semibold text-white">Carregando...</p>
-      <p id="textoCardPtBrCriarPares" class="mt-2 text-lg font-semibold text-[#8A05BE]"></p>
+      <p id="textoCardPtBrCriarPares" class="text-lg font-semibold text-[#8A05BE]"></p>
+      <p id="textoCardCriarPares" class="mt-2 text-xl font-semibold text-white">Carregando...</p>
     </div>
   </div>
 
@@ -294,7 +294,8 @@
     let audioCardEmReproducao = false;
     let audioCardRepeticaoAtiva = false;
     let cacheAudioCardId = null;
-    let cacheAudioCardBase64 = '';
+    let cacheAudioCardEnGbBase64 = '';
+    let cacheAudioCardPtBrBase64 = '';
     let ptbrAtivo = true;
     let respostaPtBrPrimario = false;
     let cardAtualEhPtBrPrimario = false;
@@ -313,7 +314,8 @@
 
     function limparCacheAudioCard() {
       cacheAudioCardId = null;
-      cacheAudioCardBase64 = '';
+      cacheAudioCardEnGbBase64 = '';
+      cacheAudioCardPtBrBase64 = '';
     }
 
     async function carregarPreferenciaPtBr() {
@@ -394,7 +396,9 @@
       textoCard.textContent = textoPrincipal || 'Card sem texto.';
       textoCard.classList.toggle('text-[#8A05BE]', cardAtualEhPtBrPrimario);
       textoCard.classList.toggle('text-white', !cardAtualEhPtBrPrimario);
-      textoCardPtBr.textContent = ptbrAtivo && !cardAtualEhPtBrPrimario ? textoPtBr : '';
+      textoCardPtBr.textContent = ptbrAtivo && !cardAtualEhPtBrPrimario && textoPtBr ? textoPtBr : '';
+      textoCard.classList.toggle('mt-0', !textoCardPtBr.textContent);
+      textoCard.classList.toggle('mt-2', Boolean(textoCardPtBr.textContent));
       tituloExpansions.textContent = String(card.expansions ?? '--');
       updateAudioButtonsState();
     }
@@ -839,7 +843,7 @@
       }
     }
 
-    async function ensureCardAudioEnGbBase64() {
+    async function ensureCardAudiosBase64() {
       const textoAtual = (textoCard.textContent || '').trim();
       if (!textoAtual) {
         throw new Error('Card sem texto disponível para gerar áudio.');
@@ -847,8 +851,11 @@
       if (textoAtual.length > AUDIO_CARD_MAX_CHARS) {
         throw new Error(`Texto muito longo para áudio (${textoAtual.length} caracteres). Limite: ${AUDIO_CARD_MAX_CHARS}.`);
       }
-      if (cacheAudioCardId === idCardAtual && cacheAudioCardBase64) {
-        return cacheAudioCardBase64;
+      if (cacheAudioCardId === idCardAtual && (cacheAudioCardEnGbBase64 || cacheAudioCardPtBrBase64)) {
+        return {
+          audioEnGb: cacheAudioCardEnGbBase64,
+          audioPtBr: cacheAudioCardPtBrBase64,
+        };
       }
 
       const response = await fetch('api/pares.php', {
@@ -872,10 +879,12 @@
         throw new Error(result.message || 'Não foi possível gerar áudio para o card.');
       }
 
-      const audioBase64 = (result.card?.audio_engb || result.card?.audio || '').trim();
+      const audioEnGb = (result.card?.audio_engb || result.card?.audio || '').trim();
+      const audioPtBr = (result.card?.audio_ptbr || '').trim();
       cacheAudioCardId = idCardAtual;
-      cacheAudioCardBase64 = audioBase64;
-      return audioBase64;
+      cacheAudioCardEnGbBase64 = audioEnGb;
+      cacheAudioCardPtBrBase64 = audioPtBr;
+      return { audioEnGb, audioPtBr };
     }
 
     async function playAudioBase64(audioBase64, { loop = false } = {}) {
@@ -901,6 +910,14 @@
       setAudioLoopUiState(loop);
       try {
         await audioCardAtual.play();
+        if (!loop) {
+          await new Promise((resolve) => {
+            audioCardAtual.onended = () => {
+              setAudioPlaybackUiState(false);
+              resolve();
+            };
+          });
+        }
       } catch (error) {
         setAudioPlaybackUiState(false);
         setAudioLoopUiState(false);
@@ -912,8 +929,21 @@
       if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
         throw new Error('Nenhum card ativo disponível para reproduzir áudio.');
       }
-      const audioBase64 = await ensureCardAudioEnGbBase64();
-      await playAudioBase64(audioBase64, { loop });
+      const { audioEnGb, audioPtBr } = await ensureCardAudiosBase64();
+      const audios = [];
+      if (audioPtBr) {
+        audios.push(audioPtBr);
+      }
+      if (audioEnGb) {
+        audios.push(audioEnGb);
+      }
+      if (audios.length === 0) {
+        throw new Error('Áudio indisponível para reprodução.');
+      }
+      for (let i = 0; i < audios.length; i += 1) {
+        const isLast = i === audios.length - 1;
+        await playAudioBase64(audios[i], { loop: loop && isLast });
+      }
     }
 
     function pauseCurrentCardAudio({ disableLoop = true } = {}) {
