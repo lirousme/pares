@@ -358,7 +358,7 @@
 
     function updateAudioButtonsState() {
       const hasCard = Number.isInteger(idCardAtual) && idCardAtual > 0;
-      const podeGerarAudioEnGb = hasCard && !cardAtualEhPtBrPrimario;
+      const podeGerarAudioEnGb = hasCard;
       btnGerarAudioCardEnGb.disabled = !podeGerarAudioEnGb;
       btnGerarAudioCardEnGb.classList.toggle('opacity-50', !podeGerarAudioEnGb);
       btnGerarAudioCardEnGb.classList.toggle('cursor-not-allowed', !podeGerarAudioEnGb);
@@ -394,10 +394,10 @@
       const textoEnGb = normalizarTextoCard(card.texto_engb);
       const textoPtBr = normalizarTextoCard(card.texto_ptbr);
       const textoLegado = normalizarTextoCard(card.texto);
-      const textoPrincipal = textoEnGb || textoLegado || textoPtBr;
+      const textoPrincipal = textoEnGb || textoLegado;
       cardAtualEhPtBrPrimario = textoEnGb === '' && (textoPtBr !== '' || textoLegado !== '');
       quantidadeRevisoesCardAtual = Number.parseInt(card.revisao_quantidade_max || '0', 10) || 0;
-      textoCard.textContent = textoPrincipal || 'Card sem texto.';
+      textoCard.textContent = textoPrincipal || (textoPtBr ? '' : 'Card sem texto.');
       textoCard.classList.add('text-white');
       textoCard.classList.remove('text-[#8A05BE]');
       textoCardPtBr.textContent = ptbrAtivo && textoPtBr ? textoPtBr : '';
@@ -536,9 +536,7 @@
         limparCacheAudioCard();
         resetCurrentAudioPlayer();
         updateAudioButtonsState();
-        if (!cardAtualEhPtBrPrimario) {
-          await tentarAutoPlayCardAtual();
-        }
+        await tentarAutoPlayCardAtual();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao criar card.');
       } finally {
@@ -838,9 +836,7 @@
         resetCurrentAudioPlayer();
         renderTextoCard(result.card);
         updateAudioButtonsState();
-        if (!cardAtualEhPtBrPrimario) {
-          await tentarAutoPlayCardAtual();
-        }
+        await tentarAutoPlayCardAtual();
       } catch (error) {
         idCardAtual = null;
         quantidadeRevisoesCardAtual = 0;
