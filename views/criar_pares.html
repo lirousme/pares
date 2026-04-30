@@ -114,7 +114,6 @@
         id="textoRespostaParEnGb"
         name="texto_engb"
         maxlength="1500"
-        required
         rows="1"
         class="mb-2 max-h-48 min-h-11 w-full resize-none overflow-y-auto rounded-xl border border-slate-700 bg-transparent px-2 py-3 text-sm text-slate-100 outline-none placeholder:text-slate-500"
         placeholder="Digite o texto em inglês (en-GB)..."
@@ -141,7 +140,6 @@
           <textarea
             id="textoNovoCardEnGb"
             name="texto_engb"
-            required
             rows="4"
             maxlength="1500"
             class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
@@ -154,7 +152,6 @@
           <textarea
             id="textoNovoCardPtBr"
             name="texto_ptbr"
-            required
             rows="4"
             maxlength="1500"
             class="w-full rounded-lg border border-emerald-500/60 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-400"
@@ -210,7 +207,6 @@
           <textarea
             id="textoEditarCardEnGb"
             name="texto_engb"
-            required
             rows="4"
             maxlength="1500"
             class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-brand-500"
@@ -223,7 +219,6 @@
           <textarea
             id="textoEditarCardPtBr"
             name="texto_ptbr"
-            required
             rows="4"
             maxlength="1500"
             class="w-full rounded-lg border border-emerald-500/60 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-400"
@@ -345,9 +340,6 @@
       containerEditarCardPtBr.classList.toggle('hidden', !ptbrAtivo);
       containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
       textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
-      textoNovoCardPtBr.required = ptbrAtivo;
-      textoEditarCardPtBr.required = ptbrAtivo;
-      textoRespostaParPtBr.required = ptbrAtivo;
     }
 
     function resetCurrentAudioPlayer() {
@@ -503,8 +495,8 @@
       const textoEnGb = textoNovoCardEnGb.value.trim();
       const textoPtBr = textoNovoCardPtBr.value.trim();
 
-      if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
-        showFeedback('Preencha o texto en-GB e, com pt-BR ativo, também o texto pt-BR.');
+      if (!textoEnGb && !textoPtBr) {
+        showFeedback('Preencha ao menos um dos textos: en-GB ou pt-BR.');
         return;
       }
 
@@ -566,8 +558,8 @@
       const textoEnGb = textoEditarCardEnGb.value.trim();
       const textoPtBr = textoEditarCardPtBr.value.trim();
 
-      if (!textoEnGb || (ptbrAtivo && !textoPtBr)) {
-        showFeedback('Preencha o texto en-GB e, com pt-BR ativo, também o texto pt-BR.');
+      if (!textoEnGb && !textoPtBr) {
+        showFeedback('Preencha ao menos um dos textos: en-GB ou pt-BR.');
         return;
       }
 
@@ -827,9 +819,6 @@
           containerEditarCardPtBr.classList.toggle('hidden', !ptbrAtivo);
           containerRespostaParPtBr.classList.toggle('hidden', !ptbrAtivo);
           textoCardPtBr.classList.toggle('hidden', !ptbrAtivo);
-          textoNovoCardPtBr.required = ptbrAtivo;
-          textoEditarCardPtBr.required = ptbrAtivo;
-          textoRespostaParPtBr.required = ptbrAtivo;
         }
 
         if (!result.card) {
