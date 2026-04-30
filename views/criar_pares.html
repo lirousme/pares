@@ -755,7 +755,7 @@
         const baseCardRemovido = Boolean(result.base_card?.removido);
         incrementarContadorCardsCriados();
         const mensagemRemocao = baseCardRemovido
-          ? ' Card base removido automaticamente após atingir 7 expansões.'
+          ? ' Card base removido automaticamente após atingir 20 expansões.'
           : '';
         showFeedback(`Card criado com sucesso! Card ${result.card.id} vinculado ao card base ${result.base_card.id}. Expansão atual: ${result.base_card.expansions}.${mensagemRemocao}`);
         await loadCardMaisAntigo();

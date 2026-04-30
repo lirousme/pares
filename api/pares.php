@@ -84,7 +84,7 @@ function nextExpansionAvailability(DateTimeImmutable $agora, int $expansions): s
     }
 
     if ($expansions >= 1) {
-        return $agora->add(new DateInterval(sprintf('P%dD', $expansions)))->format('Y-m-d H:i:s');
+        return $agora->add(new DateInterval(sprintf('PT%dM', $expansions)))->format('Y-m-d H:i:s');
     }
 
     return $agora->add(new DateInterval('PT15M'))->format('Y-m-d H:i:s');
@@ -585,7 +585,7 @@ try {
                     0 AS revisao_quantidade_max
                 FROM cards c
                 WHERE c.id_diretorio = :id_diretorio_1
-                  AND c.expansions < 7' .
+                  AND c.expansions < 20' .
                 ($idCardExcluir !== null ? sprintf($extraFiltro, 1) : '') . '
                   AND c.proxima_expansion <= :agora_prioridade_1
                 ORDER BY
@@ -604,7 +604,7 @@ try {
                     0 AS revisao_quantidade_max
                 FROM cards c
                 WHERE c.id_diretorio = :id_diretorio_2
-                  AND c.expansions < 7' .
+                  AND c.expansions < 20' .
                 ($idCardExcluir !== null ? sprintf($extraFiltro, 2) : '') . '
                   AND (c.proxima_expansion > :agora_prioridade_2 OR c.proxima_expansion IS NULL)
                 ORDER BY
@@ -869,7 +869,7 @@ try {
                 'texto_ptbr' => $textoPtBr,
                 'audio_engb' => $audios['audio_engb'],
                 'audio_ptbr' => $audios['audio_ptbr'],
-                'expansions' => -3,
+                'expansions' => 0,
                 'proxima_expansion' => $agoraFormatado,
             ]);
 
@@ -898,9 +898,9 @@ try {
             $expansionsAtual = (int) $cardBase['expansions'];
             $expansionsNovo = $expansionsAtual + 1;
 
-            if ($expansionsNovo > 7) {
+            if ($expansionsNovo > 20) {
                 $pdo->rollBack();
-                respond(422, false, 'Card base já atingiu o limite máximo de expansões (7).');
+                respond(422, false, 'Card base já atingiu o limite máximo de expansões (20).');
             }
 
             $proximaDisponivelAnterior = trim((string) ($cardBase['proxima_expansion'] ?? ''));
@@ -914,7 +914,7 @@ try {
             $baseCardRemovido = false;
             $proximaExpansion = null;
 
-            if ($expansionsNovo >= 7) {
+            if ($expansionsNovo >= 20) {
                 $deleteCardBase = $pdo->prepare(
                     'DELETE FROM cards
                      WHERE id = :id_card'
@@ -996,7 +996,7 @@ try {
                 'texto_ptbr' => $textoPtBr,
                 'audio_engb' => $audios['audio_engb'],
                 'audio_ptbr' => $audios['audio_ptbr'],
-                'expansions' => -3,
+                'expansions' => 0,
                 'proxima_expansion' => $agoraFormatado,
             ]);
             incrementMetaForDirectory($pdo, $userId, $idDiretorio);
