@@ -758,8 +758,8 @@ try {
             $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
             $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
-            if ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
-                respond(422, false, 'Texto en-GB é obrigatório e pt-BR é obrigatório apenas quando estiver ativo.');
+            if ($textoEnGb === '' && $textoPtBr === '') {
+                respond(422, false, 'Informe ao menos um texto: en-GB ou pt-BR.');
             }
 
             if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
@@ -817,8 +817,8 @@ try {
                 if ($textoPtBr === '') {
                     respond(422, false, 'Texto pt-BR é obrigatório quando o modo pt-BR estiver ativo.');
                 }
-            } elseif ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
-                respond(422, false, 'Texto en-GB é obrigatório e pt-BR é obrigatório apenas quando estiver ativo.');
+            } elseif ($textoEnGb === '' && $textoPtBr === '') {
+                respond(422, false, 'Informe ao menos um texto: en-GB ou pt-BR.');
             }
 
             if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
@@ -966,8 +966,8 @@ try {
             $textoEnGb = trim((string) ($payload['texto_engb'] ?? ''));
             $textoPtBr = trim((string) ($payload['texto_ptbr'] ?? ''));
 
-            if ($textoEnGb === '' || ($ptbrAtivo && $textoPtBr === '')) {
-                respond(422, false, 'Texto en-GB é obrigatório e pt-BR é obrigatório apenas quando estiver ativo.');
+            if ($textoEnGb === '' && $textoPtBr === '') {
+                respond(422, false, 'Informe ao menos um texto: en-GB ou pt-BR.');
             }
 
             if (mb_strlen($textoEnGb) > 1500 || mb_strlen($textoPtBr) > 1500) {
