@@ -308,6 +308,8 @@
     let ptbrAtivo = true;
     let respostaPtBrPrimario = false;
     let cardAtualEhPtBrPrimario = false;
+    const historicoCardsRecentes = [];
+    const LIMITE_HISTORICO_CARDS = 25;
 
     function setAudioPlaybackUiState(isPlaying) {
       audioCardEmReproducao = isPlaying;
@@ -804,6 +806,9 @@
         if (Number.isInteger(idCardExcluir) && idCardExcluir > 0) {
           queryParams.set('id_card_excluir', String(idCardExcluir));
         }
+        if (historicoCardsRecentes.length > 0) {
+          queryParams.set('ids_cards_excluidos', historicoCardsRecentes.join(','));
+        }
         const endpoint = `api/pares.php?${queryParams.toString()}`;
         const response = await fetch(endpoint, { cache: 'no-store' });
         const result = await response.json();
@@ -837,6 +842,12 @@
         }
 
         idCardAtual = Number.parseInt(result.card.id, 10);
+        if (Number.isInteger(idCardAtual) && idCardAtual > 0) {
+          historicoCardsRecentes.push(idCardAtual);
+          if (historicoCardsRecentes.length > LIMITE_HISTORICO_CARDS) {
+            historicoCardsRecentes.shift();
+          }
+        }
         quantidadeRevisoesCardAtual = Number.parseInt(result.card.revisao_quantidade_max || '0', 10) || 0;
         limparCacheAudioCard();
         resetCurrentAudioPlayer();
