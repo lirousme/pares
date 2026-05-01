@@ -560,62 +560,51 @@ try {
             if (array_key_exists('id_card_excluir', $_GET) && $_GET['id_card_excluir'] !== '') {
                 $idCardExcluir = parsePositiveInt($_GET['id_card_excluir'], 'ID do card para excluir');
             }
-
-            $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
-            $agoraFormatado = $agora->format('Y-m-d H:i:s');
-
-            $params = [
-                'id_diretorio_1' => $idDiretorio,
-                'id_diretorio_2' => $idDiretorio,
-                'agora_prioridade_1' => $agoraFormatado,
-                'agora_prioridade_2' => $agoraFormatado,
-            ];
-
-            $extraFiltro = '';
-            if ($idCardExcluir !== null) {
-                $extraFiltro = ' AND c.id <> :id_card_excluir_%d';
-                $params['id_card_excluir_1'] = $idCardExcluir;
-                $params['id_card_excluir_2'] = $idCardExcluir;
+            $idsCardsExcluidos = [];
+            if (array_key_exists('ids_cards_excluidos', $_GET) && trim((string) $_GET['ids_cards_excluidos']) !== '') {
+                $idsBrutos = explode(',', (string) $_GET['ids_cards_excluidos']);
+                foreach ($idsBrutos as $idBruto) {
+                    $id = (int) trim($idBruto);
+                    if ($id > 0) {
+                        $idsCardsExcluidos[$id] = true;
+                    }
+                }
+                $idsCardsExcluidos = array_keys($idsCardsExcluidos);
             }
 
-            $query = '(SELECT
-                    c.id,
-                    c.texto_engb AS texto,
-                    c.texto_engb,
-                    c.texto_ptbr,
-                    c.expansions,
-                    c.proxima_expansion,
-                    0 AS revisao_quantidade_max
-                FROM cards c
-                WHERE c.id_diretorio = :id_diretorio_1
-                  AND c.expansions < 20' .
-                ($idCardExcluir !== null ? sprintf($extraFiltro, 1) : '') . '
-                  AND c.proxima_expansion <= :agora_prioridade_1
-                ORDER BY
-                    c.expansions DESC,
-                    c.proxima_expansion ASC,
-                    c.id ASC
-                LIMIT 1)
-                UNION ALL
-                (SELECT
-                    c.id,
-                    c.texto_engb AS texto,
-                    c.texto_engb,
-                    c.texto_ptbr,
-                    c.expansions,
-                    c.proxima_expansion,
-                    0 AS revisao_quantidade_max
-                FROM cards c
-                WHERE c.id_diretorio = :id_diretorio_2
-                  AND c.expansions < 20' .
-                ($idCardExcluir !== null ? sprintf($extraFiltro, 2) : '') . '
-                  AND (c.proxima_expansion > :agora_prioridade_2 OR c.proxima_expansion IS NULL)
-                ORDER BY
-                    c.expansions DESC,
-                    c.proxima_expansion ASC,
-                    c.id ASC
-                LIMIT 1)
-                LIMIT 1';
+            $params = [
+                'id_diretorio' => $idDiretorio,
+            ];
+
+            $filtrosExtras = [];
+            if ($idCardExcluir !== null) {
+                $filtrosExtras[] = 'c.id <> :id_card_excluir';
+                $params['id_card_excluir'] = $idCardExcluir;
+            }
+            if ($idsCardsExcluidos !== []) {
+                $placeholders = [];
+                foreach ($idsCardsExcluidos as $index => $id) {
+                    $chave = sprintf('id_card_excluido_%d', $index);
+                    $placeholders[] = ':' . $chave;
+                    $params[$chave] = $id;
+                }
+                $filtrosExtras[] = 'c.id NOT IN (' . implode(', ', $placeholders) . ')';
+            }
+            $whereExtrasSql = $filtrosExtras !== [] ? ' AND ' . implode(' AND ', $filtrosExtras) : '';
+
+            $query = 'SELECT
+                c.id,
+                c.texto_engb AS texto,
+                c.texto_engb,
+                c.texto_ptbr,
+                c.expansions,
+                c.proxima_expansion,
+                0 AS revisao_quantidade_max
+            FROM cards c
+            WHERE c.id_diretorio = :id_diretorio
+              AND c.expansions < 20' . $whereExtrasSql . '
+            ORDER BY RAND()
+            LIMIT 1';
 
             $stmt = $pdo->prepare($query);
             $stmt->execute($params);
