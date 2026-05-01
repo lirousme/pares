@@ -712,7 +712,10 @@ try {
 
             $audioEnGbExistente = trim((string) ($card['audio_engb'] ?? ''));
             $audioPtBrExistente = trim((string) ($card['audio_ptbr'] ?? ''));
-            $deveGerarAudio = ($textoEnGb !== '' && $audioEnGbExistente === '') || ($ptbrAtivo && $textoPtBr !== '' && $audioPtBrExistente === '');
+            $forcarNovoAudio = (bool) ($payload['forcar_novo_audio'] ?? false);
+            $deveGerarAudio = $forcarNovoAudio
+                || ($textoEnGb !== '' && $audioEnGbExistente === '')
+                || ($ptbrAtivo && $textoPtBr !== '' && $audioPtBrExistente === '');
 
             if ($deveGerarAudio) {
                 $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
