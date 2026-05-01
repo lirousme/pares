@@ -1000,8 +1000,7 @@
 
     async function tentarAutoPlayCardAtual() {
       try {
-        const idiomaAutoPlay = ptbrAtivo && textoCardAtualPtBr ? 'ptbr' : 'engb';
-        await playCurrentCardAudio({ idioma: idiomaAutoPlay });
+        await playCurrentCardAudio({ idioma: 'todos' });
       } catch (_error) {}
     }
 
@@ -1016,7 +1015,7 @@
       btnGerarAudioCardPtBr.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        await playCurrentCardAudio({ idioma: 'ptbr', forceRefresh: true });
+        await playCurrentCardAudio({ idioma: 'todos', forceRefresh: true });
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio pt-BR.');
       } finally {
@@ -1036,7 +1035,7 @@
       btnGerarAudioCardEnGb.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        await playCurrentCardAudio({ idioma: 'engb', forceRefresh: true });
+        await playCurrentCardAudio({ idioma: 'todos', forceRefresh: true });
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio en-GB.');
       } finally {
