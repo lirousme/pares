@@ -28,11 +28,18 @@
         Editar
       </button>
       <button
+        id="btnGerarAudioCardPtBr"
+        type="button"
+        class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
+      >
+        Gerar áudio pt-BR
+      </button>
+      <button
         id="btnGerarAudioCardEnGb"
         type="button"
         class="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:text-white"
       >
-        Gerar áudio
+        Gerar áudio en-GB
       </button>
       <button
         id="btnNovoCard"
@@ -275,6 +282,7 @@
     const textoCardPtBr = document.getElementById('textoCardPtBrCriarPares');
     const tituloExpansions = document.getElementById('tituloExpansionsCriarPares');
     const contadorCriacaoCards = document.getElementById('contadorCriacaoCards');
+    const btnGerarAudioCardPtBr = document.getElementById('btnGerarAudioCardPtBr');
     const btnGerarAudioCardEnGb = document.getElementById('btnGerarAudioCardEnGb');
     const feedbackCriarPares = document.getElementById('feedbackCriarPares');
     const formRespostaPar = document.getElementById('formRespostaPar');
@@ -363,9 +371,13 @@
     function updateAudioButtonsState() {
       const hasCard = Number.isInteger(idCardAtual) && idCardAtual > 0;
       const podeGerarAudioEnGb = hasCard;
+      const podeGerarAudioPtBr = hasCard && ptbrAtivo;
       btnGerarAudioCardEnGb.disabled = !podeGerarAudioEnGb;
       btnGerarAudioCardEnGb.classList.toggle('opacity-50', !podeGerarAudioEnGb);
       btnGerarAudioCardEnGb.classList.toggle('cursor-not-allowed', !podeGerarAudioEnGb);
+      btnGerarAudioCardPtBr.disabled = !podeGerarAudioPtBr;
+      btnGerarAudioCardPtBr.classList.toggle('opacity-50', !podeGerarAudioPtBr);
+      btnGerarAudioCardPtBr.classList.toggle('cursor-not-allowed', !podeGerarAudioPtBr);
       btnEditarCard.disabled = !hasCard;
       btnReproduzirAudioCardEnGb.disabled = !podeGerarAudioEnGb;
       btnRepetirAudioCardEnGb.disabled = !podeGerarAudioEnGb;
@@ -949,16 +961,16 @@
       }
     }
 
-    async function playCurrentCardAudio({ loop = false } = {}) {
+    async function playCurrentCardAudio({ loop = false, idioma = 'todos' } = {}) {
       if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
         throw new Error('Nenhum card ativo disponível para reproduzir áudio.');
       }
       const { audioEnGb, audioPtBr } = await ensureCardAudiosBase64();
       const audios = [];
-      if (textoCardAtualPtBr && audioPtBr) {
+      if ((idioma === 'todos' || idioma === 'ptbr') && textoCardAtualPtBr && audioPtBr) {
         audios.push(audioPtBr);
       }
-      if (textoCardAtualEnGb && audioEnGb) {
+      if ((idioma === 'todos' || idioma === 'engb') && textoCardAtualEnGb && audioEnGb) {
         audios.push(audioEnGb);
       }
       if (audios.length === 0) {
@@ -987,9 +999,29 @@
 
     async function tentarAutoPlayCardAtual() {
       try {
-        await playCurrentCardAudio();
+        await playCurrentCardAudio({ idioma: 'engb' });
       } catch (_error) {}
     }
+
+    btnGerarAudioCardPtBr.addEventListener('click', async () => {
+      if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
+        showFeedback('Nenhum card ativo disponível para gerar áudio.');
+        return;
+      }
+
+      hideFeedback();
+      btnGerarAudioCardPtBr.disabled = true;
+      btnGerarAudioCardPtBr.classList.add('opacity-50', 'cursor-not-allowed');
+
+      try {
+        await playCurrentCardAudio({ idioma: 'ptbr' });
+      } catch (error) {
+        showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio pt-BR.');
+      } finally {
+        btnGerarAudioCardPtBr.disabled = false;
+        btnGerarAudioCardPtBr.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }, { signal });
 
     btnGerarAudioCardEnGb.addEventListener('click', async () => {
       if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
@@ -1002,7 +1034,7 @@
       btnGerarAudioCardEnGb.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        await playCurrentCardAudio();
+        await playCurrentCardAudio({ idioma: 'engb' });
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio en-GB.');
       } finally {
