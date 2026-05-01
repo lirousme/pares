@@ -878,7 +878,7 @@
       }
     }
 
-    async function ensureCardAudiosBase64() {
+    async function ensureCardAudiosBase64({ forceRefresh = false } = {}) {
       const textoAtualEnGb = (textoCardAtualEnGb || '').trim();
       const textoAtualPtBr = (textoCardAtualPtBr || '').trim();
       if (!textoAtualEnGb && !textoAtualPtBr) {
@@ -887,7 +887,7 @@
       if (textoAtualEnGb.length > AUDIO_CARD_MAX_CHARS || textoAtualPtBr.length > AUDIO_CARD_MAX_CHARS) {
         throw new Error(`Texto muito longo para áudio (limite: ${AUDIO_CARD_MAX_CHARS} por idioma).`);
       }
-      if (cacheAudioCardId === idCardAtual && (cacheAudioCardEnGbBase64 || cacheAudioCardPtBrBase64)) {
+      if (!forceRefresh && cacheAudioCardId === idCardAtual && (cacheAudioCardEnGbBase64 || cacheAudioCardPtBrBase64)) {
         return {
           audioEnGb: cacheAudioCardEnGbBase64,
           audioPtBr: cacheAudioCardPtBrBase64,
@@ -902,6 +902,7 @@
         body: JSON.stringify({
           action: 'gerar_audio_card',
           id_card: idCardAtual,
+          forcar_novo_audio: forceRefresh,
         }),
       });
       const result = await response.json();
@@ -961,11 +962,11 @@
       }
     }
 
-    async function playCurrentCardAudio({ loop = false, idioma = 'todos' } = {}) {
+    async function playCurrentCardAudio({ loop = false, idioma = 'todos', forceRefresh = false } = {}) {
       if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
         throw new Error('Nenhum card ativo disponível para reproduzir áudio.');
       }
-      const { audioEnGb, audioPtBr } = await ensureCardAudiosBase64();
+      const { audioEnGb, audioPtBr } = await ensureCardAudiosBase64({ forceRefresh });
       const audios = [];
       if ((idioma === 'todos' || idioma === 'ptbr') && textoCardAtualPtBr && audioPtBr) {
         audios.push(audioPtBr);
@@ -999,7 +1000,8 @@
 
     async function tentarAutoPlayCardAtual() {
       try {
-        await playCurrentCardAudio({ idioma: 'engb' });
+        const idiomaAutoPlay = ptbrAtivo && textoCardAtualPtBr ? 'ptbr' : 'engb';
+        await playCurrentCardAudio({ idioma: idiomaAutoPlay });
       } catch (_error) {}
     }
 
@@ -1014,7 +1016,7 @@
       btnGerarAudioCardPtBr.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        await playCurrentCardAudio({ idioma: 'ptbr' });
+        await playCurrentCardAudio({ idioma: 'ptbr', forceRefresh: true });
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio pt-BR.');
       } finally {
@@ -1034,7 +1036,7 @@
       btnGerarAudioCardEnGb.classList.add('opacity-50', 'cursor-not-allowed');
 
       try {
-        await playCurrentCardAudio({ idioma: 'engb' });
+        await playCurrentCardAudio({ idioma: 'engb', forceRefresh: true });
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao gerar/reproduzir áudio en-GB.');
       } finally {
