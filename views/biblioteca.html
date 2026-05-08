@@ -58,6 +58,8 @@
         <select id="selectTempoMeta" name="tempo" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500">
           <option value="Diário">Diário</option>
           <option value="Semanal">Semanal</option>
+          <option value="Mensal">Mensal</option>
+          <option value="Ilimitado">Ilimitado</option>
         </select>
       </div>
 
@@ -184,7 +186,11 @@
       btnExcluir.classList.remove('hidden');
       inputNome.value = diretorio.nome;
       selectTipo.value = String(Number.parseInt(diretorio.tipo, 10) === 2 ? 2 : 1);
-      selectTempoMeta.value = diretorio.tempo === 'Semanal' ? 'Semanal' : 'Diário';
+      if (diretorio.tempo === 'Semanal' || diretorio.tempo === 'Mensal' || diretorio.tempo === 'Ilimitado') {
+        selectTempoMeta.value = diretorio.tempo;
+      } else {
+        selectTempoMeta.value = 'Diário';
+      }
       inputQuantidadeMeta.value = String(Math.max(0, Number.parseInt(diretorio.quantidade_meta, 10) || 0));
       hideModalError();
       modalDiretorio.classList.remove('hidden');
@@ -373,7 +379,8 @@
 
       const nome = inputNome.value.trim();
       const tipo = Number.parseInt(selectTipo.value, 10);
-      const tempo = selectTempoMeta.value === 'Semanal' ? 'Semanal' : 'Diário';
+      const temposPermitidos = new Set(['Diário', 'Semanal', 'Mensal', 'Ilimitado']);
+      const tempo = temposPermitidos.has(selectTempoMeta.value) ? selectTempoMeta.value : 'Diário';
       const quantidadeMeta = Number.parseInt(inputQuantidadeMeta.value, 10);
       if (!nome) {
         showModalError('Informe um nome válido para o diretório.');

@@ -50,7 +50,8 @@ function incrementMetaForDirectory(PDO $pdo, int $userId, int $idDiretorio): voi
                    AND id_usuario = :id_usuario
                    AND quantidade_meta > 0
                    AND ((tempo = "Diário" AND (contagem_atualizada_em IS NULL OR DATE(contagem_atualizada_em) < CURRENT_DATE()))
-                     OR (tempo = "Semanal" AND (contagem_atualizada_em IS NULL OR YEARWEEK(contagem_atualizada_em, 1) < YEARWEEK(CURDATE(), 1))))';
+                     OR (tempo = "Semanal" AND (contagem_atualizada_em IS NULL OR YEARWEEK(contagem_atualizada_em, 1) < YEARWEEK(CURDATE(), 1)))
+                     OR (tempo = "Mensal" AND (contagem_atualizada_em IS NULL OR DATE_FORMAT(contagem_atualizada_em, "%Y-%m") < DATE_FORMAT(CURDATE(), "%Y-%m"))))';
     $resetStmt = $pdo->prepare($resetSql);
     $resetStmt->execute([
         'id_diretorio' => $idDiretorio,
