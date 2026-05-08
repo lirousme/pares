@@ -74,12 +74,12 @@ function parseRequiredId(mixed $idPayload): int
 function parseTempoMeta(mixed $tempoPayload): string
 {
     if (!is_string($tempoPayload)) {
-        respond(422, false, 'Tempo inválido. Use Diário ou Semanal.');
+        respond(422, false, 'Tempo inválido. Use Diário, Semanal, Mensal ou Ilimitado.');
     }
 
     $tempo = trim($tempoPayload);
-    if ($tempo !== 'Diário' && $tempo !== 'Semanal') {
-        respond(422, false, 'Tempo inválido. Use Diário ou Semanal.');
+    if ($tempo !== 'Diário' && $tempo !== 'Semanal' && $tempo !== 'Mensal' && $tempo !== 'Ilimitado') {
+        respond(422, false, 'Tempo inválido. Use Diário, Semanal, Mensal ou Ilimitado.');
     }
 
     return $tempo;
@@ -110,7 +110,8 @@ function resetMetaCountersIfNeeded(PDO $pdo, int $userId, ?int $directoryId = nu
             WHERE id_usuario = :id_usuario
               AND quantidade_meta > 0
               AND ((tempo = "Diário" AND (contagem_atualizada_em IS NULL OR DATE(contagem_atualizada_em) < CURRENT_DATE()))
-                OR (tempo = "Semanal" AND (contagem_atualizada_em IS NULL OR YEARWEEK(contagem_atualizada_em, 1) < YEARWEEK(CURDATE(), 1))))';
+                OR (tempo = "Semanal" AND (contagem_atualizada_em IS NULL OR YEARWEEK(contagem_atualizada_em, 1) < YEARWEEK(CURDATE(), 1)))
+                OR (tempo = "Mensal" AND (contagem_atualizada_em IS NULL OR DATE_FORMAT(contagem_atualizada_em, "%Y-%m") < DATE_FORMAT(CURDATE(), "%Y-%m"))))';
 
     $params = [
         'id_usuario' => $userId,
