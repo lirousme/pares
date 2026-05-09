@@ -49,7 +49,7 @@
         <label for="selectTipo" class="mb-1 block text-sm text-slate-300">Tipo</label>
         <select id="selectTipo" name="tipo" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500">
           <option value="1">Tipo 1 - Diretório</option>
-          <option value="2">Tipo 2 - Cards</option>
+          <option value="2" selected>Tipo 2 - Cards</option>
         </select>
       </div>
 
@@ -59,13 +59,13 @@
           <option value="Diário">Diário</option>
           <option value="Semanal">Semanal</option>
           <option value="Mensal">Mensal</option>
-          <option value="Ilimitado">Ilimitado</option>
+          <option value="Ilimitado" selected>Ilimitado</option>
         </select>
       </div>
 
       <div>
         <label for="inputQuantidadeMeta" class="mb-1 block text-sm text-slate-300">Quantidade meta</label>
-        <input id="inputQuantidadeMeta" name="quantidade_meta" type="number" min="0" step="1" value="0" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500" required />
+        <input id="inputQuantidadeMeta" name="quantidade_meta" type="number" min="0" step="1" value="1000" class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-brand-500" required />
       </div>
 
       <p id="modalErro" class="hidden rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200"></p>
@@ -169,9 +169,9 @@
       btnSalvarModal.textContent = 'Criar';
       btnExcluir.classList.add('hidden');
       inputNome.value = '';
-      selectTipo.value = '1';
-      selectTempoMeta.value = 'Diário';
-      inputQuantidadeMeta.value = '0';
+      selectTipo.value = '2';
+      selectTempoMeta.value = 'Ilimitado';
+      inputQuantidadeMeta.value = '1000';
       hideModalError();
       modalDiretorio.classList.remove('hidden');
       modalDiretorio.classList.add('flex');
