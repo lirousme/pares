@@ -74,21 +74,8 @@ function incrementMetaForDirectory(PDO $pdo, int $userId, int $idDiretorio): voi
 
 function nextExpansionAvailability(DateTimeImmutable $agora, int $expansions): string
 {
-    if ($expansions <= -2) {
-        $minutes = match ($expansions) {
-            -2 => 5,
-            -1 => 10,
-            default => 15,
-        };
-
-        return $agora->add(new DateInterval(sprintf('PT%dM', $minutes)))->format('Y-m-d H:i:s');
-    }
-
-    if ($expansions >= 1) {
-        return $agora->add(new DateInterval(sprintf('PT%dM', $expansions)))->format('Y-m-d H:i:s');
-    }
-
-    return $agora->add(new DateInterval('PT15M'))->format('Y-m-d H:i:s');
+    $daysToAdd = max(0, $expansions);
+    return $agora->add(new DateInterval(sprintf('P%dD', $daysToAdd)))->format('Y-m-d H:i:s');
 }
 
 function getGoogleCloudApiKey(): string
@@ -575,6 +562,7 @@ try {
 
             $params = [
                 'id_diretorio' => $idDiretorio,
+                'agora_sao_paulo' => (new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo')))->format('Y-m-d H:i:s'),
             ];
 
             $filtrosExtras = [];
@@ -603,7 +591,8 @@ try {
                 0 AS revisao_quantidade_max
             FROM cards c
             WHERE c.id_diretorio = :id_diretorio
-              AND c.expansions < 20' . $whereExtrasSql . '
+              AND c.expansions < 20
+              AND c.proxima_expansion <= :agora_sao_paulo' . $whereExtrasSql . '
             ORDER BY RAND()
             LIMIT 1';
 
