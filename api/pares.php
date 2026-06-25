@@ -74,8 +74,8 @@ function incrementMetaForDirectory(PDO $pdo, int $userId, int $idDiretorio): voi
 
 function nextExpansionAvailability(DateTimeImmutable $agora, int $expansions): string
 {
-    $daysToAdd = max(0, $expansions);
-    return $agora->add(new DateInterval(sprintf('P%dD', $daysToAdd)))->format('Y-m-d H:i:s');
+    $minutesToAdd = min(max(0, $expansions), 20) * 5;
+    return $agora->add(new DateInterval(sprintf('PT%dM', $minutesToAdd)))->format('Y-m-d H:i:s');
 }
 
 function getGoogleCloudApiKey(): string
