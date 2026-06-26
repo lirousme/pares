@@ -703,9 +703,18 @@ try {
             $audioEnGbExistente = trim((string) ($card['audio_engb'] ?? ''));
             $audioPtBrExistente = trim((string) ($card['audio_ptbr'] ?? ''));
             $forcarNovoAudio = (bool) ($payload['forcar_novo_audio'] ?? false);
-            $deveGerarAudio = $forcarNovoAudio
+            $somenteAudioExistente = (bool) ($payload['somente_audio_existente'] ?? false);
+            $temAudioExistente = ($textoEnGb === '' || $audioEnGbExistente !== '')
+                && (!$ptbrAtivo || $textoPtBr === '' || $audioPtBrExistente !== '');
+            $deveGerarAudio = !$somenteAudioExistente && (
+                $forcarNovoAudio
                 || ($textoEnGb !== '' && $audioEnGbExistente === '')
-                || ($ptbrAtivo && $textoPtBr !== '' && $audioPtBrExistente === '');
+                || ($ptbrAtivo && $textoPtBr !== '' && $audioPtBrExistente === '')
+            );
+
+            if ($somenteAudioExistente && !$temAudioExistente) {
+                respond(404, false, 'Nenhum áudio gerado para este card. Use o botão Gerar áudio antes de reproduzir.');
+            }
 
             if ($deveGerarAudio) {
                 $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
@@ -724,7 +733,9 @@ try {
                 ]);
             }
 
-            respond(200, true, 'Áudio do card gerado com sucesso.', [
+            $mensagemAudio = $deveGerarAudio ? 'Áudio do card gerado com sucesso.' : 'Áudio do card carregado com sucesso.';
+
+            respond(200, true, $mensagemAudio, [
                 'card' => [
                     'id' => $idCard,
                     'id_diretorio' => (int) $card['id_diretorio'],
