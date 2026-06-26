@@ -556,7 +556,6 @@
         limparCacheAudioCard();
         resetCurrentAudioPlayer();
         updateAudioButtonsState();
-        await tentarAutoPlayCardAtual();
       } catch (error) {
         showFeedback(error.message || 'Erro inesperado ao criar card.');
       } finally {
@@ -865,7 +864,6 @@
         resetCurrentAudioPlayer();
         renderTextoCard(result.card);
         updateAudioButtonsState();
-        await tentarAutoPlayCardAtual();
       } catch (error) {
         idCardAtual = null;
         quantidadeRevisoesCardAtual = 0;
@@ -998,11 +996,6 @@
       }
     }
 
-    async function tentarAutoPlayCardAtual() {
-      try {
-        await playCurrentCardAudio({ idioma: 'todos' });
-      } catch (_error) {}
-    }
 
     btnGerarAudioCardPtBr.addEventListener('click', async () => {
       if (!Number.isInteger(idCardAtual) || idCardAtual <= 0) {
