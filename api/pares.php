@@ -835,9 +835,6 @@ try {
 
             $textoPtBr = $salvarPtBrPrimario ? $textoPtBr : ($ptbrAtivo ? $textoPtBr : '');
             $textoEnGb = $salvarPtBrPrimario ? '' : $textoEnGb;
-            $audios = $salvarPtBrPrimario
-                ? ['audio_engb' => null, 'audio_ptbr' => null]
-                : synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
 
             $pdo->beginTransaction();
 
@@ -852,8 +849,8 @@ try {
                 'id_diretorio' => $idDiretorio,
                 'texto_engb' => $textoEnGb,
                 'texto_ptbr' => $textoPtBr,
-                'audio_engb' => $audios['audio_engb'],
-                'audio_ptbr' => $audios['audio_ptbr'],
+                'audio_engb' => null,
+                'audio_ptbr' => null,
                 'expansions' => 0,
                 'proxima_expansion' => $agoraFormatado,
             ]);
@@ -967,7 +964,6 @@ try {
             }
 
             $textoPtBr = $ptbrAtivo ? $textoPtBr : '';
-            $audios = synthesizeCardAudiosOrRespond($textoEnGb, $textoPtBr, $ptbrAtivo);
             $agora = new DateTimeImmutable('now', new DateTimeZone('America/Sao_Paulo'));
             $agoraFormatado = $agora->format('Y-m-d H:i:s');
 
@@ -979,8 +975,8 @@ try {
                 'id_diretorio' => $idDiretorio,
                 'texto_engb' => $textoEnGb,
                 'texto_ptbr' => $textoPtBr,
-                'audio_engb' => $audios['audio_engb'],
-                'audio_ptbr' => $audios['audio_ptbr'],
+                'audio_engb' => null,
+                'audio_ptbr' => null,
                 'expansions' => 0,
                 'proxima_expansion' => $agoraFormatado,
             ]);
