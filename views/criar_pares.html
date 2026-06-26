@@ -901,6 +901,7 @@
           action: 'gerar_audio_card',
           id_card: idCardAtual,
           forcar_novo_audio: forceRefresh,
+          somente_audio_existente: !forceRefresh,
         }),
       });
       const result = await response.json();
@@ -911,7 +912,10 @@
       }
 
       if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Não foi possível gerar áudio para o card.');
+        const fallbackMessage = forceRefresh
+          ? 'Não foi possível gerar áudio para o card.'
+          : 'Nenhum áudio gerado para este card. Use o botão Gerar áudio antes de reproduzir.';
+        throw new Error(result.message || fallbackMessage);
       }
 
       const audioEnGb = (result.card?.audio_engb || result.card?.audio || '').trim();
@@ -973,7 +977,7 @@
         audios.push(audioEnGb);
       }
       if (audios.length === 0) {
-        throw new Error('Áudio indisponível para reprodução.');
+        throw new Error('Nenhum áudio gerado para este card. Use o botão Gerar áudio antes de reproduzir.');
       }
       for (let i = 0; i < audios.length; i += 1) {
         const isLast = i === audios.length - 1;
